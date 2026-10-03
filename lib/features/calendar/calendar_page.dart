@@ -788,14 +788,19 @@ class _EventEditorState extends State<_EventEditor> {
     switch (type) {
       case CalendarEntryType.fight:
         autoTitle = 'Desentendimento';
+        break;
       case CalendarEntryType.special:
         autoTitle = 'Data especial';
+        break;
       case CalendarEntryType.intimacy:
         autoTitle = 'Momento íntimo';
+        break;
       case CalendarEntryType.commitment:
         autoTitle = 'Compromisso';
+        break;
       case CalendarEntryType.cycle:
         autoTitle = 'Ciclo menstrual';
+        break;
     }
 
     final details = <String, String>{};
