@@ -47,7 +47,7 @@ class _TwinRootState extends State<TwinRoot> {
     }
 
     final pages = [
-      const HomePage(),
+      HomePage(setup: setup!),
       const MemoriesPage(),
       CalendarPage(setup: setup!),
       const SummaryPage(),
