@@ -54,7 +54,7 @@ class HomePage extends StatelessWidget {
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(.12),
+                    color: Colors.white.withValues(alpha: .12),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.all_inclusive_rounded, color: Colors.white, size: 30),
@@ -87,7 +87,7 @@ class HomePage extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: TwinColors.sand.withOpacity(.5),
+              color: TwinColors.sand.withValues(alpha: .5),
               borderRadius: BorderRadius.circular(24),
             ),
             child: const Row(
@@ -128,7 +128,7 @@ class _FeatureCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: TwinColors.sand.withOpacity(.55)),
+        border: Border.all(color: TwinColors.sand.withValues(alpha: .55)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

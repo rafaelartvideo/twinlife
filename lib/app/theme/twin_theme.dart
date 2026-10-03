@@ -81,7 +81,7 @@ abstract final class TwinTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: TwinColors.sand.withOpacity(.7)),
+          borderSide: BorderSide(color: TwinColors.sand.withValues(alpha: .7)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),

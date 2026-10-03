@@ -64,7 +64,7 @@ class _TwinRootState extends State<TwinRoot> {
           child: NavigationBar(
             height: 66,
             backgroundColor: Colors.transparent,
-            indicatorColor: TwinColors.sand.withOpacity(.65),
+            indicatorColor: TwinColors.sand.withValues(alpha: .65),
             selectedIndex: currentIndex,
             onDestinationSelected: (index) => setState(() => currentIndex = index),
             destinations: const [

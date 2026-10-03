@@ -29,7 +29,7 @@ class CalendarPage extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(26),
-              border: Border.all(color: TwinColors.sand.withOpacity(.6)),
+              border: Border.all(color: TwinColors.sand.withValues(alpha: .6)),
             ),
             child: Column(
               children: [
@@ -152,7 +152,7 @@ class _Chip extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected ? TwinColors.burgundy : Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: TwinColors.sand.withOpacity(.8)),
+        border: Border.all(color: TwinColors.sand.withValues(alpha: .8)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -181,7 +181,7 @@ class _EventTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(21),
-        border: Border.all(color: TwinColors.sand.withOpacity(.55)),
+        border: Border.all(color: TwinColors.sand.withValues(alpha: .55)),
       ),
       child: Row(
         children: [

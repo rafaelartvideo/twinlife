@@ -105,7 +105,7 @@ class _MemoryNote extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: TwinColors.sand.withOpacity(.6)),
+        border: Border.all(color: TwinColors.sand.withValues(alpha: .6)),
       ),
       child: Row(
         children: [
