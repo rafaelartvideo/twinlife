@@ -1,0 +1,10 @@
+{
+  "name": "TwinLife",
+  "short_name": "TwinLife",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FAF7F1",
+  "theme_color": "#7A1E2D",
+  "description": "Um espaço para viver a vida a dois.",
+  "orientation": "portrait-primary"
+}
