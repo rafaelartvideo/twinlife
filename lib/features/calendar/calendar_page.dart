@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:twinlife/app/theme/twin_theme.dart';
 import 'package:twinlife/features/onboarding/couple_setup.dart';
 
-enum CalendarEntryType { fight, special, intimacy, commitment, cycle }
+enum CalendarEntryType {
+  fight,
+  disagreement,
+  special,
+  intimacy,
+  commitment,
+  cycle,
+}
 
 extension CalendarEntryTypeUi on CalendarEntryType {
   String get label {
     switch (this) {
       case CalendarEntryType.fight:
         return 'Brigas';
+      case CalendarEntryType.disagreement:
+        return 'Desentendimentos';
       case CalendarEntryType.special:
         return 'Especiais';
       case CalendarEntryType.intimacy:
@@ -17,7 +27,7 @@ extension CalendarEntryTypeUi on CalendarEntryType {
       case CalendarEntryType.commitment:
         return 'Compromissos';
       case CalendarEntryType.cycle:
-        return 'Ciclo';
+        return 'Fluxo menstrual';
     }
   }
 
@@ -25,23 +35,27 @@ extension CalendarEntryTypeUi on CalendarEntryType {
     switch (this) {
       case CalendarEntryType.fight:
         return 'Briga';
+      case CalendarEntryType.disagreement:
+        return 'Desentendimento';
       case CalendarEntryType.special:
-        return 'Data especial';
+        return 'Momento especial';
       case CalendarEntryType.intimacy:
-        return 'Intimidade';
+        return 'Momento íntimo';
       case CalendarEntryType.commitment:
         return 'Compromisso';
       case CalendarEntryType.cycle:
-        return 'Menstruação';
+        return 'Fluxo menstrual';
     }
   }
 
   IconData get icon {
     switch (this) {
       case CalendarEntryType.fight:
-        return Icons.forum_outlined;
+        return Icons.flash_on_rounded;
+      case CalendarEntryType.disagreement:
+        return Icons.chat_bubble_outline_rounded;
       case CalendarEntryType.special:
-        return Icons.favorite_outline_rounded;
+        return Icons.favorite_rounded;
       case CalendarEntryType.intimacy:
         return Icons.favorite_rounded;
       case CalendarEntryType.commitment:
@@ -54,15 +68,17 @@ extension CalendarEntryTypeUi on CalendarEntryType {
   Color get color {
     switch (this) {
       case CalendarEntryType.fight:
-        return const Color(0xFFA34848);
+        return TwinColors.fightRed;
+      case CalendarEntryType.disagreement:
+        return TwinColors.disagreementYellow;
       case CalendarEntryType.special:
-        return TwinColors.softGold;
+        return TwinColors.specialBlue;
       case CalendarEntryType.intimacy:
-        return TwinColors.terracotta;
+        return TwinColors.intimacyPink;
       case CalendarEntryType.commitment:
         return TwinColors.mocha;
       case CalendarEntryType.cycle:
-        return const Color(0xFFB65C78);
+        return TwinColors.cycleGray;
     }
   }
 }
@@ -95,24 +111,24 @@ class CalendarEntry {
 
     final start = DateTime(date.year, date.month, date.day);
     final target = DateTime(day.year, day.month, day.day);
-    final end = endDate == null
+    final finish = endDate == null
         ? start
         : DateTime(endDate!.year, endDate!.month, endDate!.day);
 
-    return !target.isBefore(start) && !target.isAfter(end);
+    return !target.isBefore(start) && !target.isAfter(finish);
   }
 
   bool occursInMonth(DateTime month) {
     if (annual) return date.month == month.month;
 
-    final monthStart = DateTime(month.year, month.month, 1);
-    final monthEnd = DateTime(month.year, month.month + 1, 0);
+    final startMonth = DateTime(month.year, month.month, 1);
+    final endMonth = DateTime(month.year, month.month + 1, 0);
     final start = DateTime(date.year, date.month, date.day);
-    final end = endDate == null
+    final finish = endDate == null
         ? start
         : DateTime(endDate!.year, endDate!.month, endDate!.day);
 
-    return !end.isBefore(monthStart) && !start.isAfter(monthEnd);
+    return !finish.isBefore(startMonth) && !start.isAfter(endMonth);
   }
 }
 
@@ -177,7 +193,10 @@ class _CalendarPageState extends State<CalendarPage> {
           type: CalendarEntryType.special,
           date: date,
           title: 'Nossa data especial',
-          details: {'Tipo': widget.setup.relationshipStatus},
+          details: {
+            'Tipo': widget.setup.relationshipStatus,
+            'Repetição': 'Todos os anos',
+          },
           annual: true,
         ),
       );
@@ -191,7 +210,7 @@ class _CalendarPageState extends State<CalendarPage> {
           type: CalendarEntryType.special,
           date: date,
           title: 'Aniversário de ' + widget.setup.userName,
-          details: {'Repetição': 'Todos os anos'},
+          details: const {'Repetição': 'Todos os anos'},
           annual: true,
         ),
       );
@@ -205,7 +224,7 @@ class _CalendarPageState extends State<CalendarPage> {
           type: CalendarEntryType.special,
           date: date,
           title: 'Aniversário de ' + widget.setup.partnerName,
-          details: {'Repetição': 'Todos os anos'},
+          details: const {'Repetição': 'Todos os anos'},
           annual: true,
         ),
       );
@@ -219,7 +238,10 @@ class _CalendarPageState extends State<CalendarPage> {
           type: CalendarEntryType.intimacy,
           date: date,
           title: 'Momento íntimo',
-          details: const {'Conexão': 'Não informado'},
+          details: const {
+            'Conexão': 'Não informado',
+            'Proteção': 'Não informado',
+          },
         ),
       );
     }
@@ -238,7 +260,32 @@ class _CalendarPageState extends State<CalendarPage> {
       final bMinutes = (b.time?.hour ?? 0) * 60 + (b.time?.minute ?? 0);
       return aMinutes.compareTo(bMinutes);
     });
+
     return values;
+  }
+
+  DateTime? get _latestIntimacyDate {
+    final dates = entries
+        .where((entry) => entry.type == CalendarEntryType.intimacy)
+        .map((entry) => entry.date)
+        .toList();
+
+    if (dates.isEmpty) return null;
+    dates.sort();
+    return dates.last;
+  }
+
+  int? get _daysWithoutIntimacy {
+    if (!widget.setup.sexLifeActive) return null;
+    final latest = _latestIntimacyDate;
+    if (latest == null) return null;
+
+    final today = DateTime.now();
+    final cleanToday = DateTime(today.year, today.month, today.day);
+    final cleanLatest = DateTime(latest.year, latest.month, latest.day);
+    final days = cleanToday.difference(cleanLatest).inDays;
+
+    return days >= 14 ? days : null;
   }
 
   int _monthCount(CalendarEntryType type) {
@@ -250,6 +297,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void _changeMonth(int delta) {
     final next = DateTime(visibleMonth.year, visibleMonth.month + delta);
+
     setState(() {
       visibleMonth = next;
       selectedDate = DateTime(next.year, next.month, 1);
@@ -258,6 +306,7 @@ class _CalendarPageState extends State<CalendarPage> {
 
   void _goToday() {
     final now = DateTime.now();
+
     setState(() {
       visibleMonth = DateTime(now.year, now.month);
       selectedDate = DateTime(now.year, now.month, now.day);
@@ -312,9 +361,7 @@ class _CalendarPageState extends State<CalendarPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Excluir registro?'),
-        content: Text(
-          '“' + entry.title + '” será removido do calendário.',
-        ),
+        content: Text('“' + entry.title + '” será removido do calendário.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -323,7 +370,7 @@ class _CalendarPageState extends State<CalendarPage> {
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFA34848),
+              backgroundColor: TwinColors.fightRed,
               foregroundColor: Colors.white,
             ),
             child: const Text('Excluir'),
@@ -333,7 +380,10 @@ class _CalendarPageState extends State<CalendarPage> {
     );
 
     if (confirmed != true || !mounted) return;
-    setState(() => entries.removeWhere((item) => item.id == entry.id));
+
+    setState(() {
+      entries.removeWhere((item) => item.id == entry.id);
+    });
   }
 
   Future<void> _openDetails(CalendarEntry entry) async {
@@ -347,6 +397,7 @@ class _CalendarPageState extends State<CalendarPage> {
     );
 
     if (!mounted) return;
+
     if (action == _EntryAction.edit) {
       await _editEntry(entry);
     } else if (action == _EntryAction.delete) {
@@ -361,12 +412,14 @@ class _CalendarPageState extends State<CalendarPage> {
         return entry;
       }
     }
+
     return null;
   }
 
   @override
   Widget build(BuildContext context) {
     final cycleEntry = _cycleEntryForSelectedDay;
+    final daysWithoutIntimacy = _daysWithoutIntimacy;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 100),
@@ -390,22 +443,30 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
           const SizedBox(height: 10),
           _MonthSummary(
-            fightCount: _monthCount(CalendarEntryType.fight),
-            intimacyCount: _monthCount(CalendarEntryType.intimacy),
-            specialCount: _monthCount(CalendarEntryType.special),
-            cycleCount: _monthCount(CalendarEntryType.cycle),
+            fights: _monthCount(CalendarEntryType.fight),
+            disagreements: _monthCount(CalendarEntryType.disagreement),
+            intimacy: _monthCount(CalendarEntryType.intimacy),
+            cycle: _monthCount(CalendarEntryType.cycle),
+            specials: _monthCount(CalendarEntryType.special),
           ),
           const SizedBox(height: 10),
           _FilterBar(
             selected: filter,
             onChanged: (value) => setState(() => filter = value),
           ),
+          if (daysWithoutIntimacy != null) ...[
+            const SizedBox(height: 12),
+            _ConnectionTip(days: daysWithoutIntimacy),
+          ],
           if (cycleEntry != null) ...[
             const SizedBox(height: 12),
             _CareTip(entry: cycleEntry),
           ],
           const SizedBox(height: 17),
-          _DayHeading(date: selectedDate, count: selectedEntries.length),
+          _DayHeading(
+            date: selectedDate,
+            count: selectedEntries.length,
+          ),
           const SizedBox(height: 9),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
@@ -469,17 +530,17 @@ class _CalendarHeader extends StatelessWidget {
                 'Nosso calendário',
                 style: GoogleFonts.cormorantGaramond(
                   color: TwinColors.ink,
-                  fontSize: 30,
+                  fontSize: 29,
                   height: 1,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               const SizedBox(height: 4),
               const Text(
-                'Datas, intimidade, ciclo e o que vocês viveram.',
+                'Tudo que faz parte da história de vocês.',
                 style: TextStyle(
                   color: TwinColors.muted,
-                  fontSize: 11,
+                  fontSize: TwinType.body,
                 ),
               ),
             ],
@@ -494,7 +555,7 @@ class _CalendarHeader extends StatelessWidget {
           child: const Text(
             'Hoje',
             style: TextStyle(
-              fontSize: 10.5,
+              fontSize: TwinType.body,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -569,7 +630,7 @@ class _MonthCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: TwinColors.ink,
-                    fontSize: 12,
+                    fontSize: TwinType.title,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -591,7 +652,7 @@ class _MonthCard extends StatelessWidget {
                         day,
                         style: const TextStyle(
                           color: TwinColors.muted,
-                          fontSize: 8.2,
+                          fontSize: TwinType.caption,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -607,10 +668,11 @@ class _MonthCard extends StatelessWidget {
             itemCount: 42,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              childAspectRatio: 1.08,
+              childAspectRatio: 1.02,
             ),
             itemBuilder: (context, index) {
               final day = index - offset + 1;
+
               if (day < 1 || day > daysInMonth) {
                 return const SizedBox.shrink();
               }
@@ -622,10 +684,12 @@ class _MonthCard extends StatelessWidget {
               );
               final selected = _sameDay(date, selectedDate);
               final today = _sameDay(date, DateTime.now());
-              final dayEntries =
-                  entries.where((entry) => entry.occursOn(date)).toList();
-              final colors =
-                  dayEntries.map((entry) => entry.type.color).toSet().take(3);
+              final types = entries
+                  .where((entry) => entry.occursOn(date))
+                  .map((entry) => entry.type)
+                  .toSet()
+                  .take(3)
+                  .toList();
 
               return InkWell(
                 onTap: () => onSelect(date),
@@ -633,8 +697,8 @@ class _MonthCard extends StatelessWidget {
                 child: Center(
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
-                    width: 35,
-                    height: 35,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color:
                           selected ? TwinColors.burgundy : Colors.transparent,
@@ -646,34 +710,36 @@ class _MonthCard extends StatelessWidget {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        Text(
-                          day.toString(),
-                          style: TextStyle(
-                            color:
-                                selected ? Colors.white : TwinColors.ink,
-                            fontSize: 11,
-                            fontWeight: selected || today
-                                ? FontWeight.w800
-                                : FontWeight.w500,
+                        Positioned(
+                          top: 7,
+                          child: Text(
+                            day.toString(),
+                            style: TextStyle(
+                              color:
+                                  selected ? Colors.white : TwinColors.ink,
+                              fontSize: 11.5,
+                              fontWeight: selected || today
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
                           ),
                         ),
-                        if (colors.isNotEmpty)
+                        if (types.isNotEmpty)
                           Positioned(
+                            left: 2,
+                            right: 2,
                             bottom: 2,
                             child: Row(
-                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                for (final color in colors)
-                                  Container(
-                                    width: 3.5,
-                                    height: 3.5,
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: .8,
+                                for (final type in types)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: .7,
                                     ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          selected ? Colors.white : color,
-                                      shape: BoxShape.circle,
+                                    child: _CalendarMarker(
+                                      type: type,
+                                      selected: selected,
                                     ),
                                   ),
                               ],
@@ -692,39 +758,117 @@ class _MonthCard extends StatelessWidget {
   }
 }
 
-class _MonthSummary extends StatelessWidget {
-  const _MonthSummary({
-    required this.fightCount,
-    required this.intimacyCount,
-    required this.specialCount,
-    required this.cycleCount,
+class _CalendarMarker extends StatelessWidget {
+  const _CalendarMarker({
+    required this.type,
+    required this.selected,
   });
 
-  final int fightCount;
-  final int intimacyCount;
-  final int specialCount;
-  final int cycleCount;
+  final CalendarEntryType type;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    if (type == CalendarEntryType.intimacy) {
+      return Text(
+        '❤️‍🔥',
+        style: TextStyle(
+          fontSize: 7.5,
+          color: selected ? Colors.white : null,
+          height: 1,
+        ),
+      );
+    }
+
+    final color = selected ? Colors.white : type.color;
+
+    if (type == CalendarEntryType.fight) {
+      return Icon(
+        Icons.flash_on_rounded,
+        size: 7.5,
+        color: color,
+      );
+    }
+
+    if (type == CalendarEntryType.disagreement) {
+      return Container(
+        width: 7,
+        height: 7,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Icon(
+          Icons.remove_rounded,
+          size: 5,
+          color: selected
+              ? TwinColors.burgundy
+              : const Color(0xFF6D5411),
+        ),
+      );
+    }
+
+    return Icon(
+      type.icon,
+      size: 7.2,
+      color: color,
+    );
+  }
+}
+
+class _MonthSummary extends StatelessWidget {
+  const _MonthSummary({
+    required this.fights,
+    required this.disagreements,
+    required this.intimacy,
+    required this.cycle,
+    required this.specials,
+  });
+
+  final int fights;
+  final int disagreements;
+  final int intimacy;
+  final int cycle;
+  final int specials;
 
   @override
   Widget build(BuildContext context) {
     final items = [
-      ('Brigas', fightCount, CalendarEntryType.fight.color),
-      ('Intimidade', intimacyCount, CalendarEntryType.intimacy.color),
-      ('Especiais', specialCount, CalendarEntryType.special.color),
-      ('Ciclo', cycleCount, CalendarEntryType.cycle.color),
+      _SummaryItem('Brigas', fights, CalendarEntryType.fight.color),
+      _SummaryItem(
+        'Desent.',
+        disagreements,
+        CalendarEntryType.disagreement.color,
+      ),
+      _SummaryItem(
+        'Intimidade',
+        intimacy,
+        CalendarEntryType.intimacy.color,
+      ),
+      _SummaryItem('Fluxo', cycle, CalendarEntryType.cycle.color),
+      _SummaryItem(
+        'Especiais',
+        specials,
+        CalendarEntryType.special.color,
+      ),
     ];
 
     return SizedBox(
-      height: 49,
+      height: 52,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: items.length,
         separatorBuilder: (_, __) => const SizedBox(width: 7),
         itemBuilder: (context, index) {
           final item = items[index];
+
           return Container(
-            constraints: const BoxConstraints(minWidth: 82),
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            constraints: const BoxConstraints(minWidth: 86),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 11,
+              vertical: 7,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(15),
@@ -735,10 +879,10 @@ class _MonthSummary extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 7,
-                  height: 7,
+                  width: 8,
+                  height: 8,
                   decoration: BoxDecoration(
-                    color: item.$3,
+                    color: item.color,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -748,19 +892,19 @@ class _MonthSummary extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      item.$2.toString(),
+                      item.count.toString(),
                       style: const TextStyle(
                         color: TwinColors.ink,
-                        fontSize: 12,
+                        fontSize: TwinType.title,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
                     Text(
-                      item.$1,
+                      item.label,
                       style: const TextStyle(
                         color: TwinColors.muted,
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w600,
+                        fontSize: TwinType.caption,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
@@ -772,6 +916,14 @@ class _MonthSummary extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SummaryItem {
+  const _SummaryItem(this.label, this.count, this.color);
+
+  final String label;
+  final int count;
+  final Color color;
 }
 
 class _FilterBar extends StatelessWidget {
@@ -791,7 +943,7 @@ class _FilterBar extends StatelessWidget {
     ];
 
     return SizedBox(
-      height: 34,
+      height: 38,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: options.length,
@@ -806,34 +958,35 @@ class _FilterBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(99),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 11),
               decoration: BoxDecoration(
                 color: active ? TwinColors.burgundy : Colors.white,
                 borderRadius: BorderRadius.circular(99),
                 border: Border.all(
-                  color:
-                      active ? TwinColors.burgundy : TwinColors.sand,
+                  color: active
+                      ? TwinColors.burgundy
+                      : TwinColors.sand,
                 ),
               ),
               child: Row(
                 children: [
                   if (type != null) ...[
                     Container(
-                      width: 6,
-                      height: 6,
+                      width: 7,
+                      height: 7,
                       decoration: BoxDecoration(
                         color: active ? Colors.white : type.color,
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 6),
                   ],
                   Text(
                     label,
                     style: TextStyle(
                       color: active ? Colors.white : TwinColors.ink,
-                      fontSize: 9.6,
-                      fontWeight: FontWeight.w700,
+                      fontSize: TwinType.caption,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ],
@@ -846,6 +999,63 @@ class _FilterBar extends StatelessWidget {
   }
 }
 
+class _ConnectionTip extends StatelessWidget {
+  const _ConnectionTip({required this.days});
+
+  final int days;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: TwinColors.intimacyPink.withValues(alpha: .09),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: TwinColors.intimacyPink.withValues(alpha: .2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '❤️‍🔥',
+            style: TextStyle(fontSize: 20),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Que tal criar um momento de conexão?',
+                  style: TextStyle(
+                    color: TwinColors.ink,
+                    fontSize: TwinType.title,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Já faz ' +
+                      days.toString() +
+                      ' dias desde o último momento íntimo registrado. Pode ser carinho, conversa, passeio ou intimidade — sem pressão.',
+                  style: const TextStyle(
+                    color: TwinColors.muted,
+                    fontSize: TwinType.body,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CareTip extends StatelessWidget {
   const _CareTip({required this.entry});
 
@@ -853,17 +1063,16 @@ class _CareTip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final symptom = entry.details['Sintomas'];
-    final flow = entry.details['Fluxo'];
+    final feelings = entry.details['Como se sente'];
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8E9EE),
+        color: TwinColors.cycleGray.withValues(alpha: .08),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: CalendarEntryType.cycle.color.withValues(alpha: .22),
+          color: TwinColors.cycleGray.withValues(alpha: .18),
         ),
       ),
       child: Row(
@@ -871,7 +1080,7 @@ class _CareTip extends StatelessWidget {
         children: [
           const Icon(
             Icons.favorite_outline_rounded,
-            color: Color(0xFF9C4965),
+            color: TwinColors.cycleGray,
             size: 20,
           ),
           const SizedBox(width: 9),
@@ -880,22 +1089,23 @@ class _CareTip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Um pouco mais de carinho hoje',
+                  'Um pouco mais de cuidado hoje',
                   style: TextStyle(
-                    color: Color(0xFF6C3347),
-                    fontSize: 11.5,
+                    color: TwinColors.ink,
+                    fontSize: TwinType.title,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Se fizer sentido para ela, atenção, descanso, uma flor ou um chocolatinho podem ser um gesto gostoso.' +
-                      (symptom == null ? '' : ' Sintomas: ' + symptom + '.') +
-                      (flow == null ? '' : ' Fluxo: ' + flow + '.'),
+                  'Se fizer sentido para ela, carinho, atenção, descanso, flores ou um chocolatinho podem ser um gesto gostoso.' +
+                      (feelings == null
+                          ? ''
+                          : ' Hoje ela registrou: ' + feelings + '.'),
                   style: const TextStyle(
-                    color: Color(0xFF83566A),
-                    fontSize: 9.7,
-                    height: 1.35,
+                    color: TwinColors.muted,
+                    fontSize: TwinType.body,
+                    height: 1.4,
                   ),
                 ),
               ],
@@ -908,7 +1118,10 @@ class _CareTip extends StatelessWidget {
 }
 
 class _DayHeading extends StatelessWidget {
-  const _DayHeading({required this.date, required this.count});
+  const _DayHeading({
+    required this.date,
+    required this.count,
+  });
 
   final DateTime date;
   final int count;
@@ -926,7 +1139,7 @@ class _DayHeading extends StatelessWidget {
             _dayLabel(date),
             style: const TextStyle(
               color: TwinColors.ink,
-              fontSize: 13.5,
+              fontSize: TwinType.title,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -935,8 +1148,8 @@ class _DayHeading extends StatelessWidget {
           countLabel,
           style: const TextStyle(
             color: TwinColors.muted,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
+            fontSize: TwinType.caption,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ],
@@ -945,7 +1158,10 @@ class _DayHeading extends StatelessWidget {
 }
 
 class _EventTile extends StatelessWidget {
-  const _EventTile({required this.entry, required this.onTap});
+  const _EventTile({
+    required this.entry,
+    required this.onTap,
+  });
 
   final CalendarEntry entry;
   final VoidCallback onTap;
@@ -955,7 +1171,9 @@ class _EventTile extends StatelessWidget {
     final timeLabel =
         entry.time == null ? '' : ' · ' + _formatTime(entry.time!);
     final intensity = entry.details['Intensidade'];
-    final extra = entry.type == CalendarEntryType.fight && intensity != null
+    final extra = (entry.type == CalendarEntryType.fight ||
+                entry.type == CalendarEntryType.disagreement) &&
+            intensity != null
         ? ' · intensidade ' + intensity
         : '';
 
@@ -974,17 +1192,23 @@ class _EventTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 38,
-              height: 38,
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
                 color: entry.type.color.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
-                entry.type.icon,
-                color: entry.type.color,
-                size: 18,
-              ),
+              alignment: Alignment.center,
+              child: entry.type == CalendarEntryType.intimacy
+                  ? const Text(
+                      '❤️‍🔥',
+                      style: TextStyle(fontSize: 17),
+                    )
+                  : Icon(
+                      entry.type.icon,
+                      color: entry.type.color,
+                      size: 19,
+                    ),
             ),
             const SizedBox(width: 10),
             Expanded(
@@ -997,7 +1221,7 @@ class _EventTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: TwinColors.ink,
-                      fontSize: 11.8,
+                      fontSize: TwinType.title,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -1008,7 +1232,7 @@ class _EventTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: TwinColors.muted,
-                      fontSize: 9.8,
+                      fontSize: TwinType.caption,
                     ),
                   ),
                 ],
@@ -1017,7 +1241,7 @@ class _EventTile extends StatelessWidget {
             const Icon(
               Icons.chevron_right_rounded,
               color: TwinColors.mocha,
-              size: 18,
+              size: 19,
             ),
           ],
         ),
@@ -1027,7 +1251,10 @@ class _EventTile extends StatelessWidget {
 }
 
 class _EmptyDay extends StatelessWidget {
-  const _EmptyDay({required this.onAdd, super.key});
+  const _EmptyDay({
+    required this.onAdd,
+    super.key,
+  });
 
   final VoidCallback onAdd;
 
@@ -1050,21 +1277,18 @@ class _EmptyDay extends StatelessWidget {
             color: TwinColors.mocha,
             size: 23,
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 7),
           const Text(
             'Esse dia ainda está em branco.',
             style: TextStyle(
               color: TwinColors.ink,
-              fontSize: 11.5,
+              fontSize: TwinType.body,
               fontWeight: FontWeight.w700,
             ),
           ),
           TextButton(
             onPressed: onAdd,
-            child: const Text(
-              'Adicionar registro',
-              style: TextStyle(fontSize: 10.5),
-            ),
+            child: const Text('Adicionar registro'),
           ),
         ],
       ),
@@ -1079,42 +1303,41 @@ class _QuickAdd extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final types = [
+      CalendarEntryType.fight,
+      CalendarEntryType.disagreement,
+      CalendarEntryType.intimacy,
+      CalendarEntryType.cycle,
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Adicionar rápido',
+          'ADICIONAR RÁPIDO',
           style: TextStyle(
             color: TwinColors.muted,
-            fontSize: 9.5,
+            fontSize: TwinType.caption,
             fontWeight: FontWeight.w800,
-            letterSpacing: .5,
+            letterSpacing: .7,
           ),
         ),
         const SizedBox(height: 7),
-        Row(
-          children: [
-            Expanded(
-              child: _QuickButton(
-                type: CalendarEntryType.fight,
-                onTap: () => onAdd(CalendarEntryType.fight),
-              ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: _QuickButton(
-                type: CalendarEntryType.intimacy,
-                onTap: () => onAdd(CalendarEntryType.intimacy),
-              ),
-            ),
-            const SizedBox(width: 7),
-            Expanded(
-              child: _QuickButton(
-                type: CalendarEntryType.cycle,
-                onTap: () => onAdd(CalendarEntryType.cycle),
-              ),
-            ),
-          ],
+        SizedBox(
+          height: 66,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: types.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 7),
+            itemBuilder: (context, index) {
+              final type = types[index];
+
+              return _QuickButton(
+                type: type,
+                onTap: () => onAdd(type),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -1136,7 +1359,11 @@ class _QuickButton extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(15),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 7),
+        width: 96,
+        padding: const EdgeInsets.symmetric(
+          vertical: 8,
+          horizontal: 8,
+        ),
         decoration: BoxDecoration(
           color: type.color.withValues(alpha: .09),
           borderRadius: BorderRadius.circular(15),
@@ -1145,8 +1372,18 @@ class _QuickButton extends StatelessWidget {
           ),
         ),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(type.icon, size: 17, color: type.color),
+            type == CalendarEntryType.intimacy
+                ? const Text(
+                    '❤️‍🔥',
+                    style: TextStyle(fontSize: 17),
+                  )
+                : Icon(
+                    type.icon,
+                    size: 18,
+                    color: type.color,
+                  ),
             const SizedBox(height: 4),
             Text(
               type.singular,
@@ -1154,8 +1391,8 @@ class _QuickButton extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: TwinColors.ink,
-                fontSize: 8.8,
-                fontWeight: FontWeight.w700,
+                fontSize: TwinType.caption,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -1184,36 +1421,41 @@ class _EventEditorState extends State<_EventEditor> {
   late final TextEditingController title;
   late final TextEditingController reason;
   late final TextEditingController notes;
+  late final TextEditingController timeText;
 
   late CalendarEntryType type;
   late DateTime date;
   DateTime? endDate;
-  TimeOfDay time = TimeOfDay.now();
-  bool hasTime = false;
   bool annual = false;
 
-  int intensity = 2;
+  double intensity = 2;
   String feeling = 'Chateação';
   String participation = 'Nós dois';
   String resolution = 'Conversamos e nos entendemos';
-  String duration = '10–30 min';
 
   String connection = 'Boa';
+  String protection = 'Prefiro não informar';
+  String afterIntimacy = 'Bem';
   String cycleFlow = 'Médio';
-  final Set<String> cycleSymptoms = {};
+  final Set<String> cycleFeelings = {};
+
   String? error;
 
   bool get isEditing => widget.initial != null;
 
+  bool get isConflict {
+    return type == CalendarEntryType.fight ||
+        type == CalendarEntryType.disagreement;
+  }
+
   @override
   void initState() {
     super.initState();
+
     final initial = widget.initial;
     type = initial?.type ?? widget.initialType ?? CalendarEntryType.special;
     date = initial?.date ?? widget.date;
     endDate = initial?.endDate;
-    time = initial?.time ?? TimeOfDay.now();
-    hasTime = initial?.time != null;
     annual = initial?.annual ?? false;
 
     title = TextEditingController(text: initial?.title ?? '');
@@ -1223,22 +1465,37 @@ class _EventEditorState extends State<_EventEditor> {
     notes = TextEditingController(
       text: initial?.details['Observações'] ?? '',
     );
+    timeText = TextEditingController(
+      text: initial?.time == null ? '' : _formatTime(initial!.time!),
+    );
 
     intensity =
-        _parseIntensity(initial?.details['Intensidade']) ?? 2;
-    feeling = initial?.details['Sentimento'] ?? 'Chateação';
+        (_parseIntensity(initial?.details['Intensidade']) ?? 2).toDouble();
+
+    if (initial?.details['Sentimento'] != null) {
+      feeling = initial!.details['Sentimento']!;
+    } else {
+      feeling = type == CalendarEntryType.fight
+          ? 'Raiva'
+          : 'Chateação';
+    }
+
     participation =
         initial?.details['Participação'] ?? 'Nós dois';
     resolution = initial?.details['Resolução'] ??
         'Conversamos e nos entendemos';
-    duration = initial?.details['Duração'] ?? '10–30 min';
+
     connection = initial?.details['Conexão'] ?? 'Boa';
+    protection =
+        initial?.details['Proteção'] ?? 'Prefiro não informar';
+    afterIntimacy = initial?.details['Depois'] ?? 'Bem';
+
     cycleFlow = initial?.details['Fluxo'] ?? 'Médio';
 
-    final symptomText = initial?.details['Sintomas'];
-    if (symptomText != null && symptomText != 'Nenhum informado') {
-      cycleSymptoms.addAll(
-        symptomText
+    final feelings = initial?.details['Como se sente'];
+    if (feelings != null && feelings != 'Não informado') {
+      cycleFeelings.addAll(
+        feelings
             .split(', ')
             .where((value) => value.trim().isNotEmpty),
       );
@@ -1255,6 +1512,7 @@ class _EventEditorState extends State<_EventEditor> {
     title.dispose();
     reason.dispose();
     notes.dispose();
+    timeText.dispose();
     super.dispose();
   }
 
@@ -1264,7 +1522,7 @@ class _EventEditorState extends State<_EventEditor> {
       initialDate: end ? (endDate ?? date) : date,
       firstDate: DateTime(1940),
       lastDate: DateTime(2100),
-      helpText: end ? 'Fim do ciclo' : 'Data do registro',
+      helpText: end ? 'Fim do fluxo menstrual' : 'Data do registro',
       cancelText: 'Cancelar',
       confirmText: 'Confirmar',
     );
@@ -1276,6 +1534,7 @@ class _EventEditorState extends State<_EventEditor> {
         endDate = value.isBefore(date) ? date : value;
       } else {
         date = value;
+
         if (endDate != null && endDate!.isBefore(date)) {
           endDate = date;
         }
@@ -1283,21 +1542,33 @@ class _EventEditorState extends State<_EventEditor> {
     });
   }
 
-  Future<void> _pickTime() async {
-    final value = await showTimePicker(
-      context: context,
-      initialTime: time,
+  TimeOfDay? _readTime() {
+    final raw = timeText.text.trim();
+    if (raw.isEmpty) return null;
+
+    final match = RegExp(r'^([01]\d|2[0-3]):([0-5]\d)$').firstMatch(raw);
+    if (match == null) return null;
+
+    return TimeOfDay(
+      hour: int.parse(match.group(1)!),
+      minute: int.parse(match.group(2)!),
     );
-    if (value != null) setState(() => time = value);
   }
 
   void _changeType(CalendarEntryType value) {
     setState(() {
       type = value;
       error = null;
-      if (type == CalendarEntryType.cycle) {
-        hasTime = false;
+
+      if (value == CalendarEntryType.fight) {
+        feeling = 'Raiva';
+      } else if (value == CalendarEntryType.disagreement) {
+        feeling = 'Chateação';
+      }
+
+      if (value == CalendarEntryType.cycle) {
         annual = false;
+        timeText.clear();
       }
     });
   }
@@ -1305,16 +1576,15 @@ class _EventEditorState extends State<_EventEditor> {
   void _save() {
     setState(() => error = null);
 
-    if (type == CalendarEntryType.fight &&
-        reason.text.trim().isEmpty) {
+    if (isConflict && reason.text.trim().isEmpty) {
       setState(() {
-        error = 'Conte resumidamente o que iniciou a discussão.';
+        error = 'Conte resumidamente o que iniciou a situação.';
       });
       return;
     }
 
-    if ((type == CalendarEntryType.commitment ||
-            type == CalendarEntryType.special) &&
+    if ((type == CalendarEntryType.special ||
+            type == CalendarEntryType.commitment) &&
         title.text.trim().isEmpty) {
       setState(() {
         error = 'Dê um nome para esse registro.';
@@ -1322,13 +1592,31 @@ class _EventEditorState extends State<_EventEditor> {
       return;
     }
 
+    TimeOfDay? parsedTime;
+
+    if (type != CalendarEntryType.cycle &&
+        timeText.text.trim().isNotEmpty) {
+      parsedTime = _readTime();
+
+      if (parsedTime == null) {
+        setState(() {
+          error = 'Digite o horário no formato 20:30.';
+        });
+        return;
+      }
+    }
+
     String autoTitle;
+
     switch (type) {
       case CalendarEntryType.fight:
+        autoTitle = 'Briga';
+        break;
+      case CalendarEntryType.disagreement:
         autoTitle = 'Desentendimento';
         break;
       case CalendarEntryType.special:
-        autoTitle = 'Data especial';
+        autoTitle = 'Momento especial';
         break;
       case CalendarEntryType.intimacy:
         autoTitle = 'Momento íntimo';
@@ -1337,28 +1625,31 @@ class _EventEditorState extends State<_EventEditor> {
         autoTitle = 'Compromisso';
         break;
       case CalendarEntryType.cycle:
-        autoTitle = 'Menstruação';
+        autoTitle = 'Fluxo menstrual';
         break;
     }
 
     final details = <String, String>{};
 
-    if (type == CalendarEntryType.fight) {
+    if (isConflict) {
       details.addAll({
         'Motivo': reason.text.trim(),
-        'Intensidade': intensity.toString() + '/3',
+        'Intensidade': intensity.round().toString() + '/3',
         'Sentimento': feeling,
         'Participação': participation,
-        'Duração': duration,
         'Resolução': resolution,
       });
     } else if (type == CalendarEntryType.intimacy) {
-      details['Conexão'] = connection;
+      details.addAll({
+        'Conexão': connection,
+        'Proteção': protection,
+        'Depois': afterIntimacy,
+      });
     } else if (type == CalendarEntryType.cycle) {
       details['Fluxo'] = cycleFlow;
-      details['Sintomas'] = cycleSymptoms.isEmpty
-          ? 'Nenhum informado'
-          : cycleSymptoms.join(', ');
+      details['Como se sente'] = cycleFeelings.isEmpty
+          ? 'Não informado'
+          : cycleFeelings.join(', ');
     }
 
     if (notes.text.trim().isNotEmpty) {
@@ -1379,7 +1670,7 @@ class _EventEditorState extends State<_EventEditor> {
         title: title.text.trim().isEmpty
             ? autoTitle
             : title.text.trim(),
-        time: hasTime && type != CalendarEntryType.cycle ? time : null,
+        time: parsedTime,
         details: details,
         annual: type == CalendarEntryType.special && annual,
       ),
@@ -1404,19 +1695,18 @@ class _EventEditorState extends State<_EventEditor> {
                 color: TwinColors.ink,
               ),
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(
-              isEditing
-                  ? 'Ajuste as informações desse momento.'
-                  : 'Registre o que aconteceu nesse dia.',
+              _formatDate(date),
               style: const TextStyle(
                 color: TwinColors.muted,
-                fontSize: 10.5,
+                fontSize: TwinType.body,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 13),
+            const SizedBox(height: 14),
             SizedBox(
-              height: 70,
+              height: 72,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: CalendarEntryType.values.length,
@@ -1430,7 +1720,7 @@ class _EventEditorState extends State<_EventEditor> {
                     borderRadius: BorderRadius.circular(17),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
-                      width: 80,
+                      width: 91,
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: active ? item.color : Colors.white,
@@ -1442,11 +1732,18 @@ class _EventEditorState extends State<_EventEditor> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            item.icon,
-                            color: active ? Colors.white : item.color,
-                            size: 19,
-                          ),
+                          item == CalendarEntryType.intimacy
+                              ? const Text(
+                                  '❤️‍🔥',
+                                  style: TextStyle(fontSize: 18),
+                                )
+                              : Icon(
+                                  item.icon,
+                                  color: active
+                                      ? Colors.white
+                                      : item.color,
+                                  size: 19,
+                                ),
                           const SizedBox(height: 4),
                           Text(
                             item.singular,
@@ -1456,8 +1753,8 @@ class _EventEditorState extends State<_EventEditor> {
                               color: active
                                   ? Colors.white
                                   : TwinColors.ink,
-                              fontSize: 9.2,
-                              fontWeight: FontWeight.w700,
+                              fontSize: TwinType.caption,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
                         ],
@@ -1476,20 +1773,27 @@ class _EventEditorState extends State<_EventEditor> {
               const SizedBox(height: 8),
               _EditorDateRow(
                 date: endDate,
-                label: 'Fim do ciclo (opcional)',
+                label: 'Fim do fluxo (opcional)',
                 onTap: () => _pickDate(end: true),
               ),
-            ],
-            if (type != CalendarEntryType.cycle) ...[
+            ] else ...[
               const SizedBox(height: 8),
-              _TimeToggle(
-                value: hasTime,
-                time: time,
-                onChanged: (value) => setState(() => hasTime = value),
-                onPick: _pickTime,
+              TextField(
+                controller: timeText,
+                keyboardType: TextInputType.datetime,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(
+                    RegExp(r'[0-9:]'),
+                  ),
+                  LengthLimitingTextInputFormatter(5),
+                ],
+                decoration: const InputDecoration(
+                  labelText: 'Horário (opcional)',
+                  hintText: 'Ex.: 20:30',
+                ),
               ),
             ],
-            const SizedBox(height: 10),
+            const SizedBox(height: 9),
             TextField(
               controller: title,
               textCapitalization: TextCapitalization.sentences,
@@ -1502,61 +1806,34 @@ class _EventEditorState extends State<_EventEditor> {
               ),
             ),
             if (type == CalendarEntryType.special) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 9),
               _SwitchLine(
                 title: 'Repetir todos os anos',
-                subtitle: 'Ideal para aniversários e datas do casal.',
                 value: annual,
                 onChanged: (value) => setState(() => annual = value),
               ),
             ],
-            if (type == CalendarEntryType.fight) ...[
-              const SizedBox(height: 14),
+            if (isConflict) ...[
+              const SizedBox(height: 15),
               const _EditorLabel(
-                'Pensando com calma, o que fez isso começar?',
+                'Pensando com calma, o que fez essa situação começar?',
               ),
               const SizedBox(height: 7),
               TextField(
                 controller: reason,
                 minLines: 2,
                 maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
-                  hintText:
-                      'Descreva o motivo sem culpar ou atacar.',
+                  hintText: 'Conte de forma curta e sem julgamentos.',
                 ),
               ),
-              const SizedBox(height: 13),
-              const _EditorLabel('Intensidade'),
-              const SizedBox(height: 7),
-              Row(
-                children: [
-                  for (final value in [1, 2, 3])
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          right: value == 3 ? 0 : 7,
-                        ),
-                        child: _MiniChoice(
-                          label: value == 1
-                              ? 'Leve'
-                              : value == 2
-                                  ? 'Média'
-                                  : 'Forte',
-                          selected: intensity == value,
-                          color: value == 1
-                              ? TwinColors.softGold
-                              : value == 2
-                                  ? TwinColors.terracotta
-                                  : const Color(0xFFA34848),
-                          onTap: () {
-                            setState(() => intensity = value);
-                          },
-                        ),
-                      ),
-                    ),
-                ],
+              const SizedBox(height: 15),
+              _IntensitySlider(
+                value: intensity,
+                onChanged: (value) => setState(() => intensity = value),
               ),
-              const SizedBox(height: 13),
+              const SizedBox(height: 15),
               const _EditorLabel('O que você sentiu?'),
               const SizedBox(height: 7),
               _WrapChoices(
@@ -1567,13 +1844,11 @@ class _EventEditorState extends State<_EventEditor> {
                   'Não sei identificar',
                 ],
                 selected: feeling,
-                onChanged: (value) {
-                  setState(() => feeling = value);
-                },
+                onChanged: (value) => setState(() => feeling = value),
               ),
-              const SizedBox(height: 13),
+              const SizedBox(height: 15),
               const _EditorLabel(
-                'Como você percebe a participação de vocês?',
+                'Olhando agora com calma, como você percebe a participação de cada um?',
               ),
               const SizedBox(height: 7),
               _WrapChoices(
@@ -1588,25 +1863,8 @@ class _EventEditorState extends State<_EventEditor> {
                   setState(() => participation = value);
                 },
               ),
-              const SizedBox(height: 13),
-              const _EditorLabel('Quanto tempo durou?'),
-              const SizedBox(height: 7),
-              _WrapChoices(
-                values: const [
-                  'Até 10 min',
-                  '10–30 min',
-                  '30–60 min',
-                  'Mais de 1h',
-                ],
-                selected: duration,
-                onChanged: (value) {
-                  setState(() => duration = value);
-                },
-              ),
-              const SizedBox(height: 13),
-              const _EditorLabel(
-                'Como a situação foi resolvida?',
-              ),
+              const SizedBox(height: 15),
+              const _EditorLabel('Como a situação foi resolvida?'),
               const SizedBox(height: 7),
               _WrapChoices(
                 values: const [
@@ -1622,21 +1880,56 @@ class _EventEditorState extends State<_EventEditor> {
               ),
             ],
             if (type == CalendarEntryType.intimacy) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 15),
               const _EditorLabel(
-                'Como você percebeu a conexão entre vocês?',
+                'Como estava a conexão entre vocês?',
               ),
               const SizedBox(height: 7),
               _WrapChoices(
-                values: const ['Muito boa', 'Boa', 'Neutra', 'Distante'],
+                values: const [
+                  'Muito boa',
+                  'Boa',
+                  'Neutra',
+                  'Distante',
+                ],
                 selected: connection,
                 onChanged: (value) {
                   setState(() => connection = value);
                 },
               ),
+              const SizedBox(height: 15),
+              const _EditorLabel('Proteção'),
+              const SizedBox(height: 7),
+              _WrapChoices(
+                values: const [
+                  'Com proteção',
+                  'Sem proteção',
+                  'Não se aplica',
+                  'Prefiro não informar',
+                ],
+                selected: protection,
+                onChanged: (value) {
+                  setState(() => protection = value);
+                },
+              ),
+              const SizedBox(height: 15),
+              const _EditorLabel('Como você se sentiu depois?'),
+              const SizedBox(height: 7),
+              _WrapChoices(
+                values: const [
+                  'Muito bem',
+                  'Bem',
+                  'Neutro',
+                  'Desconfortável',
+                ],
+                selected: afterIntimacy,
+                onChanged: (value) {
+                  setState(() => afterIntimacy = value);
+                },
+              ),
             ],
             if (type == CalendarEntryType.cycle) ...[
-              const SizedBox(height: 14),
+              const SizedBox(height: 15),
               const _EditorLabel('Fluxo'),
               const SizedBox(height: 7),
               _WrapChoices(
@@ -1645,25 +1938,30 @@ class _EventEditorState extends State<_EventEditor> {
                 onChanged: (value) {
                   setState(() => cycleFlow = value);
                 },
+                color: TwinColors.cycleGray,
               ),
-              const SizedBox(height: 13),
-              const _EditorLabel('Sintomas'),
+              const SizedBox(height: 15),
+              const _EditorLabel(
+                'Como você está se sentindo hoje?',
+              ),
               const SizedBox(height: 7),
               _MultiChoices(
                 values: const [
                   'Cólica',
                   'Dor de cabeça',
                   'Cansaço',
-                  'Sensibilidade',
-                  'Irritabilidade',
-                  'Inchaço',
+                  'Sensível',
+                  'Irritada',
+                  'Inchada',
+                  'Tranquila',
+                  'Carente',
                 ],
-                selected: cycleSymptoms,
+                selected: cycleFeelings,
                 onToggle: (value) {
                   setState(() {
-                    cycleSymptoms.contains(value)
-                        ? cycleSymptoms.remove(value)
-                        : cycleSymptoms.add(value);
+                    cycleFeelings.contains(value)
+                        ? cycleFeelings.remove(value)
+                        : cycleFeelings.add(value);
                   });
                 },
               ),
@@ -1685,15 +1983,15 @@ class _EventEditorState extends State<_EventEditor> {
                 error!,
                 style: const TextStyle(
                   color: TwinColors.burgundy,
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
+                  fontSize: TwinType.caption,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              height: 49,
+              height: 50,
               child: FilledButton(
                 onPressed: _save,
                 style: FilledButton.styleFrom(
@@ -1709,7 +2007,7 @@ class _EventEditorState extends State<_EventEditor> {
                       : 'Salvar no calendário',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
-                    fontSize: 12,
+                    fontSize: TwinType.body,
                   ),
                 ),
               ),
@@ -1717,6 +2015,92 @@ class _EventEditorState extends State<_EventEditor> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _IntensitySlider extends StatelessWidget {
+  const _IntensitySlider({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  Color get color {
+    if (value < 1.5) return TwinColors.softGold;
+    if (value < 2.5) return TwinColors.terracotta;
+    return TwinColors.fightRed;
+  }
+
+  String get label {
+    if (value < 1.5) return 'Leve';
+    if (value < 2.5) return 'Média';
+    return 'Forte';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _EditorLabel('Intensidade'),
+        const SizedBox(height: 4),
+        SliderTheme(
+          data: SliderTheme.of(context).copyWith(
+            activeTrackColor: color,
+            inactiveTrackColor: TwinColors.sand,
+            thumbColor: color,
+            overlayColor: color.withValues(alpha: .12),
+            trackHeight: 5,
+            thumbShape: const RoundSliderThumbShape(
+              enabledThumbRadius: 9,
+            ),
+          ),
+          child: Slider(
+            value: value,
+            min: 1,
+            max: 3,
+            divisions: 2,
+            onChanged: onChanged,
+          ),
+        ),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Leve',
+                style: TextStyle(
+                  color: TwinColors.muted,
+                  fontSize: TwinType.caption,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: color,
+                  fontSize: TwinType.body,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const Expanded(
+              child: Text(
+                'Forte',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: TwinColors.muted,
+                  fontSize: TwinType.caption,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -1736,85 +2120,40 @@ class _EditorDateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(17),
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: const Icon(Icons.calendar_month_outlined),
-        ),
-        child: Text(
-          date == null ? 'Selecionar' : _formatDate(date!),
-          style: TextStyle(
-            color: date == null ? TwinColors.muted : TwinColors.ink,
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: TwinColors.sand.withValues(alpha: .8),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _TimeToggle extends StatelessWidget {
-  const _TimeToggle({
-    required this.value,
-    required this.time,
-    required this.onChanged,
-    required this.onPick,
-  });
-
-  final bool value;
-  final TimeOfDay time;
-  final ValueChanged<bool> onChanged;
-  final VoidCallback onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(13, 7, 8, 7),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: TwinColors.sand.withValues(alpha: .75),
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.schedule_rounded,
-            color: TwinColors.burgundy,
-            size: 20,
-          ),
-          const SizedBox(width: 9),
-          const Expanded(
-            child: Text(
-              'Adicionar horário',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: TwinColors.mocha,
+                fontSize: TwinType.caption,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              date == null ? 'DD / MM / AAAA' : _formatDate(date!),
               style: TextStyle(
-                color: TwinColors.ink,
-                fontSize: 11.5,
+                color:
+                    date == null ? TwinColors.muted : TwinColors.ink,
+                fontSize: TwinType.input,
                 fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-          if (value)
-            TextButton(
-              onPressed: onPick,
-              child: Text(
-                _formatTime(time),
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: TwinColors.burgundy,
-            activeThumbColor: Colors.white,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1823,46 +2162,32 @@ class _TimeToggle extends StatelessWidget {
 class _SwitchLine extends StatelessWidget {
   const _SwitchLine({
     required this.title,
-    required this.subtitle,
     required this.value,
     required this.onChanged,
   });
 
   final String title;
-  final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      padding: const EdgeInsets.fromLTRB(13, 7, 8, 7),
       decoration: BoxDecoration(
-        color: TwinColors.sand.withValues(alpha: .20),
+        color: TwinColors.sand.withValues(alpha: .2),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: TwinColors.ink,
-                    fontSize: 10.8,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: TwinColors.muted,
-                    fontSize: 9.2,
-                  ),
-                ),
-              ],
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: TwinColors.ink,
+                fontSize: TwinType.body,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           Switch.adaptive(
@@ -1888,7 +2213,7 @@ class _EditorLabel extends StatelessWidget {
       text,
       style: const TextStyle(
         color: TwinColors.ink,
-        fontSize: 11,
+        fontSize: TwinType.title,
         fontWeight: FontWeight.w800,
       ),
     );
@@ -1900,23 +2225,25 @@ class _WrapChoices extends StatelessWidget {
     required this.values,
     required this.selected,
     required this.onChanged,
+    this.color = TwinColors.burgundy,
   });
 
   final List<String> values;
   final String selected;
   final ValueChanged<String> onChanged;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: 7,
+      runSpacing: 7,
       children: values
           .map(
             (value) => _MiniChoice(
               label: value,
               selected: selected == value,
-              color: TwinColors.burgundy,
+              color: color,
               onTap: () => onChanged(value),
             ),
           )
@@ -1939,14 +2266,14 @@ class _MultiChoices extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: 7,
+      runSpacing: 7,
       children: values
           .map(
             (value) => _MiniChoice(
               label: value,
               selected: selected.contains(value),
-              color: CalendarEntryType.cycle.color,
+              color: TwinColors.cycleGray,
               onTap: () => onToggle(value),
             ),
           )
@@ -1976,8 +2303,8 @@ class _MiniChoice extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 8,
+          horizontal: 11,
+          vertical: 9,
         ),
         decoration: BoxDecoration(
           color: selected ? color : Colors.white,
@@ -1990,7 +2317,7 @@ class _MiniChoice extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected ? Colors.white : TwinColors.ink,
-            fontSize: 9.3,
+            fontSize: TwinType.body,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -2005,6 +2332,11 @@ class _EntryDetails extends StatelessWidget {
   const _EntryDetails({required this.entry});
 
   final CalendarEntry entry;
+
+  bool get isConflict {
+    return entry.type == CalendarEntryType.fight ||
+        entry.type == CalendarEntryType.disagreement;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2023,16 +2355,22 @@ class _EntryDetails extends StatelessWidget {
             Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     color: entry.type.color.withValues(alpha: .13),
                     borderRadius: BorderRadius.circular(13),
                   ),
-                  child: Icon(
-                    entry.type.icon,
-                    color: entry.type.color,
-                  ),
+                  alignment: Alignment.center,
+                  child: entry.type == CalendarEntryType.intimacy
+                      ? const Text(
+                          '❤️‍🔥',
+                          style: TextStyle(fontSize: 19),
+                        )
+                      : Icon(
+                          entry.type.icon,
+                          color: entry.type.color,
+                        ),
                 ),
                 const SizedBox(width: 11),
                 Expanded(
@@ -2042,7 +2380,7 @@ class _EntryDetails extends StatelessWidget {
                       Text(
                         entry.title,
                         style: const TextStyle(
-                          fontSize: 15,
+                          fontSize: TwinType.title,
                           color: TwinColors.ink,
                           fontWeight: FontWeight.w800,
                         ),
@@ -2056,7 +2394,7 @@ class _EntryDetails extends StatelessWidget {
                             timeLabel,
                         style: const TextStyle(
                           color: TwinColors.muted,
-                          fontSize: 10.3,
+                          fontSize: TwinType.caption,
                         ),
                       ),
                     ],
@@ -2074,7 +2412,7 @@ class _EntryDetails extends StatelessWidget {
                 const SizedBox(height: 7),
               ],
             ],
-            if (entry.type == CalendarEntryType.fight) ...[
+            if (isConflict) ...[
               const SizedBox(height: 5),
               const _NvcCard(),
             ],
@@ -2097,9 +2435,12 @@ class _EntryDetails extends StatelessWidget {
                       Navigator.of(context).pop(_EntryAction.delete);
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFA34848),
+                      foregroundColor: TwinColors.fightRed,
                     ),
-                    icon: const Icon(Icons.delete_outline_rounded, size: 17),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      size: 17,
+                    ),
                     label: const Text('Excluir'),
                   ),
                 ),
@@ -2131,25 +2472,27 @@ class _NvcCard extends StatelessWidget {
               Icon(
                 Icons.chat_bubble_outline_rounded,
                 color: TwinColors.burgundy,
-                size: 17,
+                size: 18,
               ),
               SizedBox(width: 7),
-              Text(
-                'Próximo passo · comunicação não violenta',
-                style: TextStyle(
-                  color: TwinColors.ink,
-                  fontSize: 10.3,
-                  fontWeight: FontWeight.w800,
+              Expanded(
+                child: Text(
+                  'Comunicação não violenta',
+                  style: TextStyle(
+                    color: TwinColors.ink,
+                    fontSize: TwinType.title,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ],
           ),
           SizedBox(height: 7),
           Text(
-            'Tentem conversar em quatro partes: o que aconteceu sem julgamento, o que cada um sentiu, do que precisava e qual pedido concreto pode fazer agora.',
+            'Tentem separar a conversa em quatro partes: o que aconteceu sem julgamento, o que cada um sentiu, do que precisava e qual pedido concreto pode fazer agora.',
             style: TextStyle(
               color: TwinColors.muted,
-              fontSize: 9.7,
+              fontSize: TwinType.body,
               height: 1.4,
             ),
           ),
@@ -2174,11 +2517,11 @@ class _DetailRow extends StatelessWidget {
 
     if (label == 'Sentimento') {
       if (value == 'Raiva') {
-        valueColor = const Color(0xFFA34848);
+        valueColor = TwinColors.fightRed;
       } else if (value == 'Chateação') {
-        valueColor = const Color(0xFFC8953F);
+        valueColor = const Color(0xFFB88A1A);
       } else if (value == 'Tristeza') {
-        valueColor = const Color(0xFF56749A);
+        valueColor = TwinColors.specialBlue;
       } else {
         valueColor = TwinColors.mocha;
       }
@@ -2186,7 +2529,7 @@ class _DetailRow extends StatelessWidget {
 
     if (label == 'Participação' &&
         value == 'Meu parceiro teve maior participação') {
-      valueColor = const Color(0xFF4C72A3);
+      valueColor = TwinColors.specialBlue;
     }
 
     return Container(
@@ -2206,9 +2549,9 @@ class _DetailRow extends StatelessWidget {
             label.toUpperCase(),
             style: const TextStyle(
               color: TwinColors.muted,
-              fontSize: 8.2,
+              fontSize: TwinType.caption,
               fontWeight: FontWeight.w800,
-              letterSpacing: .8,
+              letterSpacing: .7,
             ),
           ),
           const SizedBox(height: 4),
@@ -2216,7 +2559,7 @@ class _DetailRow extends StatelessWidget {
             value,
             style: TextStyle(
               color: valueColor,
-              fontSize: 11.2,
+              fontSize: TwinType.body,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -2229,7 +2572,9 @@ class _DetailRow extends StatelessWidget {
 String _titleHint(CalendarEntryType type) {
   switch (type) {
     case CalendarEntryType.fight:
-      return 'Ex.: Discussão sobre horários';
+      return 'Ex.: Briga por horários';
+    case CalendarEntryType.disagreement:
+      return 'Ex.: Ficamos chateados';
     case CalendarEntryType.special:
       return 'Ex.: Aniversário de namoro';
     case CalendarEntryType.intimacy:
@@ -2237,7 +2582,7 @@ String _titleHint(CalendarEntryType type) {
     case CalendarEntryType.commitment:
       return 'Ex.: Jantar, cinema, viagem...';
     case CalendarEntryType.cycle:
-      return 'Menstruação';
+      return 'Fluxo menstrual';
   }
 }
 
@@ -2271,8 +2616,10 @@ String _dayLabel(DateTime date) {
     'sexta-feira',
     'sábado',
   ];
-  final weekIndex = date.weekday % 7;
-  return names[weekIndex] +
+
+  final index = date.weekday % 7;
+
+  return names[index] +
       ', ' +
       date.day.toString().padLeft(2, '0') +
       '/' +
