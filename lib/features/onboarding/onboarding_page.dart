@@ -23,8 +23,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   DateTime? partnerBirthday;
   DateTime? relationshipDate;
   DateTime? lastIntimacyDate;
+
   String relationshipStatus = 'Namorados';
+  String sexualOrientation = 'Prefiro não informar';
   final Set<String> goals = {'Valorizar o parceiro'};
+
   bool sexLifeActive = true;
   bool dataAllowed = true;
   bool galleryAllowed = true;
@@ -49,7 +52,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
       initialDate: current ?? DateTime(2000, 1, 1),
       firstDate: DateTime(1940),
       lastDate: DateTime.now(),
-      helpText: 'Escolha uma data',
+      helpText: 'Selecione a data',
       cancelText: 'Cancelar',
       confirmText: 'Confirmar',
     );
@@ -60,17 +63,20 @@ class _OnboardingPageState extends State<OnboardingPage> {
 
     if (step == 1 &&
         (userName.text.trim().isEmpty || partnerName.text.trim().isEmpty)) {
-      setState(() => error = 'Preencha os dois nomes para continuar.');
+      setState(() => error = 'Preencha os dois nomes.');
       return false;
     }
+
     if (step == 2 && relationshipDate == null) {
-      setState(() => error = 'Escolha a data especial de vocês.');
+      setState(() => error = 'Informe a data especial de vocês.');
       return false;
     }
+
     if (step == 4 && !termsAccepted) {
-      setState(() => error = 'É preciso aceitar os termos para continuar.');
+      setState(() => error = 'Aceite os termos para continuar.');
       return false;
     }
+
     return true;
   }
 
@@ -90,6 +96,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         partnerBirthday: partnerBirthday,
         relationshipStatus: relationshipStatus,
         relationshipDate: relationshipDate,
+        sexualOrientation: sexualOrientation,
         goals: goals,
         gratitude: gratitude.text.trim(),
         improvement: improvement.text.trim(),
@@ -115,39 +122,58 @@ class _OnboardingPageState extends State<OnboardingPage> {
     return Scaffold(
       backgroundColor: TwinColors.ivory,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _QuizHeader(
-              step: step,
-              totalSteps: totalSteps,
-              onBack: step == 0 ? null : _back,
+            const Positioned(
+              right: -18,
+              top: 98,
+              child: _SoftHeart(size: 92, opacity: .045),
             ),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 280),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                transitionBuilder: (child, animation) {
-                  final slide = Tween<Offset>(
-                    begin: const Offset(.06, 0),
-                    end: Offset.zero,
-                  ).animate(animation);
-                  return FadeTransition(
-                    opacity: animation,
-                    child: SlideTransition(position: slide, child: child),
-                  );
-                },
-                child: SingleChildScrollView(
-                  key: ValueKey(step),
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                  child: _stepContent(),
+            const Positioned(
+              left: -22,
+              bottom: 118,
+              child: _SoftHeart(size: 78, opacity: .035),
+            ),
+            Column(
+              children: [
+                _QuizHeader(
+                  step: step,
+                  totalSteps: totalSteps,
+                  onBack: step == 0 ? null : _back,
                 ),
-              ),
-            ),
-            _Footer(
-              isLast: step == totalSteps - 1,
-              error: error,
-              onContinue: _next,
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) {
+                      final slide = Tween<Offset>(
+                        begin: const Offset(.055, 0),
+                        end: Offset.zero,
+                      ).animate(animation);
+
+                      return FadeTransition(
+                        opacity: animation,
+                        child: SlideTransition(
+                          position: slide,
+                          child: child,
+                        ),
+                      );
+                    },
+                    child: SingleChildScrollView(
+                      key: ValueKey(step),
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+                      child: _stepContent(),
+                    ),
+                  ),
+                ),
+                _Footer(
+                  step: step,
+                  isLast: step == totalSteps - 1,
+                  error: error,
+                  onContinue: _next,
+                ),
+              ],
             ),
           ],
         ),
@@ -158,10 +184,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   Widget _stepContent() {
     switch (step) {
       case 0:
-        return _IntroStep(
-          dataAllowed: dataAllowed,
-          onDataChanged: (value) => setState(() => dataAllowed = value),
-        );
+        return const _IntroStep();
       case 1:
         return _NamesStep(
           userName: userName,
@@ -180,8 +203,10 @@ class _OnboardingPageState extends State<OnboardingPage> {
       case 2:
         return _RelationshipStep(
           status: relationshipStatus,
+          orientation: sexualOrientation,
           date: relationshipDate,
           onStatus: (value) => setState(() => relationshipStatus = value),
+          onOrientation: (value) => setState(() => sexualOrientation = value),
           onDate: () async {
             final value = await _pickDate(relationshipDate);
             if (value != null) setState(() => relationshipDate = value);
@@ -202,6 +227,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         return _PrivacyStep(
           sexLifeActive: sexLifeActive,
           lastIntimacyDate: lastIntimacyDate,
+          dataAllowed: dataAllowed,
           galleryAllowed: galleryAllowed,
           locationAllowed: locationAllowed,
           termsAccepted: termsAccepted,
@@ -210,6 +236,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             final value = await _pickDate(lastIntimacyDate);
             if (value != null) setState(() => lastIntimacyDate = value);
           },
+          onDataChanged: (value) => setState(() => dataAllowed = value),
           onGalleryChanged: (value) => setState(() => galleryAllowed = value),
           onLocationChanged: (value) => setState(() => locationAllowed = value),
           onTermsChanged: (value) => setState(() => termsAccepted = value),
@@ -232,6 +259,7 @@ class _QuizHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = (step + 1) / totalSteps;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 8, 18, 6),
       child: Column(
@@ -262,13 +290,13 @@ class _QuizHeader extends StatelessWidget {
                 (step + 1).toString() + '/' + totalSteps.toString(),
                 style: const TextStyle(
                   color: TwinColors.muted,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                  fontSize: TwinType.body,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           TweenAnimationBuilder<double>(
             tween: Tween(begin: 0, end: progress),
             duration: const Duration(milliseconds: 320),
@@ -289,13 +317,7 @@ class _QuizHeader extends StatelessWidget {
 }
 
 class _IntroStep extends StatelessWidget {
-  const _IntroStep({
-    required this.dataAllowed,
-    required this.onDataChanged,
-  });
-
-  final bool dataAllowed;
-  final ValueChanged<bool> onDataChanged;
+  const _IntroStep();
 
   @override
   Widget build(BuildContext context) {
@@ -303,40 +325,59 @@ class _IntroStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-          height: 178,
+          height: 220,
           width: double.infinity,
-          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(30),
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Color(0xFFE6D4C4),
-                Color(0xFFC58A79),
+                Color(0xFFE9D9CB),
+                Color(0xFFC98676),
                 TwinColors.burgundy,
               ],
             ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x167A1E2D),
+                blurRadius: 24,
+                offset: Offset(0, 10),
+              ),
+            ],
           ),
           child: Stack(
             children: [
               Positioned(
-                right: -20,
-                top: -22,
+                right: -24,
+                top: -18,
                 child: Icon(
                   Icons.favorite_rounded,
-                  size: 150,
-                  color: Colors.white.withValues(alpha: .08),
+                  size: 178,
+                  color: Colors.white.withValues(alpha: .075),
                 ),
               ),
-              Align(
-                alignment: Alignment.bottomLeft,
+              const Positioned(
+                left: 20,
+                top: 20,
+                child: Row(
+                  children: [
+                    _GlassHeart(),
+                    SizedBox(width: 7),
+                    _GlassHeart(small: true),
+                  ],
+                ),
+              ),
+              Positioned(
+                left: 22,
+                right: 22,
+                bottom: 22,
                 child: Text(
-                  'Entender mais.\nCuidar melhor.',
+                  'Um espaço só de vocês.',
                   style: GoogleFonts.cormorantGaramond(
                     color: Colors.white,
-                    fontSize: 31,
-                    height: .95,
+                    fontSize: 34,
+                    height: .96,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -344,20 +385,19 @@ class _IntroStep extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 20),
-        const _StepTitle(
+        const SizedBox(height: 24),
+        const _QuestionTitle(
           eyebrow: 'BEM-VINDOS',
-          title: 'Vamos conhecer um pouco de vocês?',
-          subtitle:
-              'Esse quiz configura datas, calendário e experiências do casal. Depois vocês podem alterar tudo.',
+          title: 'Prontos para montar a história de vocês?',
         ),
-        const SizedBox(height: 16),
-        _ToggleCard(
-          icon: Icons.auto_awesome_outlined,
-          title: 'Personalizar a experiência',
-          subtitle: 'Usar as respostas para adaptar o TwinLife ao casal.',
-          value: dataAllowed,
-          onChanged: onDataChanged,
+        const SizedBox(height: 12),
+        const Text(
+          '♡  datas  ·  conexão  ·  memórias  ·  cuidado',
+          style: TextStyle(
+            color: TwinColors.mocha,
+            fontSize: TwinType.body,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
     );
@@ -386,43 +426,43 @@ class _NamesStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _StepTitle(
+        const _QuestionTitle(
           eyebrow: 'VOCÊS DOIS',
-          title: 'Primeiro, quem faz parte dessa história?',
-          subtitle:
-              'Usaremos os nomes e aniversários nas experiências e datas importantes.',
+          title: 'Qual o nome de vocês?',
         ),
         const SizedBox(height: 18),
-        _InputCard(
-          label: 'Seu nome',
-          child: TextField(
-            controller: userName,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              hintText: 'Como podemos te chamar?',
-            ),
+        TextField(
+          controller: userName,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Seu nome',
+            hintText: 'Como podemos te chamar?',
           ),
         ),
         const SizedBox(height: 10),
-        _DateCard(
-          label: 'Seu aniversário',
+        TextField(
+          controller: partnerName,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Nome do seu parceiro(a)',
+            hintText: 'Como podemos chamá-lo(a)?',
+          ),
+        ),
+        const SizedBox(height: 22),
+        const _QuestionTitle(
+          eyebrow: 'ANIVERSÁRIOS',
+          title: 'Quando vocês nasceram?',
+          compact: true,
+        ),
+        const SizedBox(height: 12),
+        _DateField(
+          label: 'Sua data de nascimento',
           value: userBirthday,
           onTap: onUserBirthday,
         ),
-        const SizedBox(height: 12),
-        _InputCard(
-          label: 'Nome do seu amor',
-          child: TextField(
-            controller: partnerName,
-            textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(
-              hintText: 'Nome do seu parceiro(a)',
-            ),
-          ),
-        ),
         const SizedBox(height: 10),
-        _DateCard(
-          label: 'Aniversário dele(a)',
+        _DateField(
+          label: 'Data de nascimento do parceiro(a)',
           value: partnerBirthday,
           onTap: onPartnerBirthday,
         ),
@@ -434,75 +474,69 @@ class _NamesStep extends StatelessWidget {
 class _RelationshipStep extends StatelessWidget {
   const _RelationshipStep({
     required this.status,
+    required this.orientation,
     required this.date,
     required this.onStatus,
+    required this.onOrientation,
     required this.onDate,
   });
 
   final String status;
+  final String orientation;
   final DateTime? date;
   final ValueChanged<String> onStatus;
+  final ValueChanged<String> onOrientation;
   final VoidCallback onDate;
 
   @override
   Widget build(BuildContext context) {
     const statuses = ['Namorados', 'Noivos', 'Casados', 'Enrolados'];
+    const orientations = [
+      'Heterossexual',
+      'Homossexual',
+      'Bissexual',
+      'Pansexual',
+      'Outra',
+      'Prefiro não informar',
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _StepTitle(
+        const _QuestionTitle(
           eyebrow: 'NOSSA HISTÓRIA',
-          title: 'Como vocês definem o relacionamento?',
-          subtitle: 'A data especial entra automaticamente no calendário.',
-        ),
-        const SizedBox(height: 18),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: statuses
-              .map(
-                (item) => _ChoicePill(
-                  label: item,
-                  selected: item == status,
-                  onTap: () => onStatus(item),
-                ),
-              )
-              .toList(),
-        ),
-        const SizedBox(height: 16),
-        _DateCard(
-          label: 'Quando essa história começou?',
-          value: date,
-          onTap: onDate,
-          icon: Icons.favorite_outline_rounded,
+          title: 'Qual o status atual do relacionamento?',
         ),
         const SizedBox(height: 14),
-        Container(
-          padding: const EdgeInsets.all(15),
-          decoration: BoxDecoration(
-            color: TwinColors.sand.withValues(alpha: .30),
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: const Row(
-            children: [
-              Icon(
-                Icons.calendar_month_outlined,
-                color: TwinColors.burgundy,
-              ),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Aniversários e a data do relacionamento aparecerão em “Datas especiais”.',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    height: 1.4,
-                    color: TwinColors.mocha,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        _ChoiceWrap(
+          values: statuses,
+          selected: status,
+          onChanged: onStatus,
+        ),
+        const SizedBox(height: 22),
+        const _QuestionTitle(
+          eyebrow: 'DATA DE VOCÊS',
+          title: 'Quando essa história começou?',
+          compact: true,
+        ),
+        const SizedBox(height: 11),
+        _DateField(
+          label: 'Data do relacionamento',
+          value: date,
+          onTap: onDate,
+          heart: true,
+        ),
+        const SizedBox(height: 22),
+        const _QuestionTitle(
+          eyebrow: 'SOBRE VOCÊS',
+          title: 'Qual a orientação sexual do casal?',
+          compact: true,
+        ),
+        const SizedBox(height: 11),
+        _ChoiceWrap(
+          values: orientations,
+          selected: orientation,
+          onChanged: onOrientation,
         ),
       ],
     );
@@ -534,15 +568,14 @@ class _GoalsStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _StepTitle(
+        const _QuestionTitle(
           eyebrow: 'O QUE BUSCAM',
-          title: 'O que vocês querem construir por aqui?',
-          subtitle: 'Pode escolher mais de uma opção.',
+          title: 'O que esperam do TwinLife?',
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 7,
+          runSpacing: 7,
           children: options
               .map(
                 (item) => _ChoicePill(
@@ -553,28 +586,36 @@ class _GoalsStep extends StatelessWidget {
               )
               .toList(),
         ),
-        const SizedBox(height: 18),
-        _InputCard(
-          label: 'Pelo que você é grato no seu parceiro?',
-          child: TextField(
-            controller: gratitude,
-            minLines: 2,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'Uma qualidade, gesto ou lembrança...',
-            ),
-          ),
+        const SizedBox(height: 22),
+        const _QuestionTitle(
+          eyebrow: 'CARINHO',
+          title: 'Pelo que você é grato no seu parceiro?',
+          compact: true,
         ),
         const SizedBox(height: 10),
-        _InputCard(
-          label: 'O que gostaria que ele(a) melhorasse?',
-          child: TextField(
-            controller: improvement,
-            minLines: 2,
-            maxLines: 3,
-            decoration: const InputDecoration(
-              hintText: 'Escreva com carinho e sinceridade.',
-            ),
+        TextField(
+          controller: gratitude,
+          minLines: 2,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Escreva o que vier à cabeça...',
+          ),
+        ),
+        const SizedBox(height: 18),
+        const _QuestionTitle(
+          eyebrow: 'SINCERIDADE',
+          title: 'O que gostaria que ele(a) melhorasse?',
+          compact: true,
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: improvement,
+          minLines: 2,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Escreva com carinho...',
           ),
         ),
       ],
@@ -586,11 +627,13 @@ class _PrivacyStep extends StatelessWidget {
   const _PrivacyStep({
     required this.sexLifeActive,
     required this.lastIntimacyDate,
+    required this.dataAllowed,
     required this.galleryAllowed,
     required this.locationAllowed,
     required this.termsAccepted,
     required this.onSexLifeChanged,
     required this.onLastIntimacy,
+    required this.onDataChanged,
     required this.onGalleryChanged,
     required this.onLocationChanged,
     required this.onTermsChanged,
@@ -598,11 +641,14 @@ class _PrivacyStep extends StatelessWidget {
 
   final bool sexLifeActive;
   final DateTime? lastIntimacyDate;
+  final bool dataAllowed;
   final bool galleryAllowed;
   final bool locationAllowed;
   final bool termsAccepted;
+
   final ValueChanged<bool> onSexLifeChanged;
   final VoidCallback onLastIntimacy;
+  final ValueChanged<bool> onDataChanged;
   final ValueChanged<bool> onGalleryChanged;
   final ValueChanged<bool> onLocationChanged;
   final ValueChanged<bool> onTermsChanged;
@@ -612,57 +658,62 @@ class _PrivacyStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _StepTitle(
-          eyebrow: 'PRIVACIDADE',
-          title: 'Últimos detalhes antes de começar',
-          subtitle: 'Vocês controlam o que o app usa e compartilha.',
+        const _QuestionTitle(
+          eyebrow: 'INTIMIDADE',
+          title: 'Vocês possuem vida sexual ativa?',
         ),
-        const SizedBox(height: 15),
+        const SizedBox(height: 12),
         _ToggleCard(
-          icon: Icons.favorite_border_rounded,
-          title: 'Vida sexual ativa',
-          subtitle: 'Ajuda a organizar o calendário íntimo do casal.',
+          title: sexLifeActive ? 'Sim' : 'Não',
           value: sexLifeActive,
           onChanged: onSexLifeChanged,
         ),
         if (sexLifeActive) ...[
-          const SizedBox(height: 9),
-          _DateCard(
+          const SizedBox(height: 12),
+          _DateField(
             label: 'Último momento íntimo',
             value: lastIntimacyDate,
             onTap: onLastIntimacy,
-            icon: Icons.favorite_rounded,
+            heart: true,
           ),
         ],
-        const SizedBox(height: 9),
+        const SizedBox(height: 22),
+        const _QuestionTitle(
+          eyebrow: 'PERMISSÕES',
+          title: 'O que o TwinLife pode acessar?',
+          compact: true,
+        ),
+        const SizedBox(height: 10),
         _ToggleCard(
-          icon: Icons.photo_library_outlined,
-          title: 'Acesso à galeria',
-          subtitle: 'Para fotos, vídeos, álbuns e dedicatórias.',
+          title: 'Utilização dos dados do casal',
+          value: dataAllowed,
+          onChanged: onDataChanged,
+        ),
+        const SizedBox(height: 8),
+        _ToggleCard(
+          title: 'Galeria de fotos e vídeos',
           value: galleryAllowed,
           onChanged: onGalleryChanged,
         ),
-        const SizedBox(height: 9),
+        const SizedBox(height: 8),
         _ToggleCard(
-          icon: Icons.location_on_outlined,
           title: 'Localização',
-          subtitle: 'Pode ser ativada agora ou configurada depois.',
           value: locationAllowed,
           onChanged: onLocationChanged,
         ),
-        const SizedBox(height: 13),
+        const SizedBox(height: 14),
         InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(17),
           onTap: () => onTermsChanged(!termsAccepted),
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(11, 10, 13, 10),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(17),
               border: Border.all(color: TwinColors.sand),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Checkbox(
                   value: termsAccepted,
@@ -670,15 +721,14 @@ class _PrivacyStep extends StatelessWidget {
                   activeColor: TwinColors.burgundy,
                   visualDensity: VisualDensity.compact,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 const Expanded(
                   child: Text(
-                    'Li e aceito os termos de uso e entendo como meus dados, galeria e localização serão utilizados.',
+                    'Li e aceito os termos de uso.',
                     style: TextStyle(
                       color: TwinColors.ink,
-                      fontSize: 11.5,
-                      height: 1.45,
-                      fontWeight: FontWeight.w600,
+                      fontSize: TwinType.body,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -691,16 +741,16 @@ class _PrivacyStep extends StatelessWidget {
   }
 }
 
-class _StepTitle extends StatelessWidget {
-  const _StepTitle({
+class _QuestionTitle extends StatelessWidget {
+  const _QuestionTitle({
     required this.eyebrow,
     required this.title,
-    required this.subtitle,
+    this.compact = false,
   });
 
   final String eyebrow;
   final String title;
-  final String subtitle;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -711,28 +761,19 @@ class _StepTitle extends StatelessWidget {
           eyebrow,
           style: const TextStyle(
             color: TwinColors.terracotta,
-            fontSize: 9.5,
+            fontSize: TwinType.caption,
             fontWeight: FontWeight.w800,
-            letterSpacing: 1.4,
+            letterSpacing: 1.2,
           ),
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 6),
         Text(
           title,
           style: GoogleFonts.cormorantGaramond(
             color: TwinColors.ink,
-            fontSize: 31,
+            fontSize: compact ? 25 : 30,
             height: 1,
             fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          subtitle,
-          style: const TextStyle(
-            color: TwinColors.muted,
-            fontSize: 12.5,
-            height: 1.45,
           ),
         ),
       ],
@@ -740,81 +781,68 @@ class _StepTitle extends StatelessWidget {
   }
 }
 
-class _InputCard extends StatelessWidget {
-  const _InputCard({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 11, 14, 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(19),
-        border: Border.all(
-          color: TwinColors.sand.withValues(alpha: .8),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: TwinColors.mocha,
-              fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 7),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _DateCard extends StatelessWidget {
-  const _DateCard({
+class _DateField extends StatelessWidget {
+  const _DateField({
     required this.label,
     required this.value,
     required this.onTap,
-    this.icon = Icons.cake_outlined,
+    this.heart = false,
   });
 
   final String label;
   final DateTime? value;
   final VoidCallback onTap;
-  final IconData icon;
+  final bool heart;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(17),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(17),
           border: Border.all(
-            color: TwinColors.sand.withValues(alpha: .8),
+            color: TwinColors.sand.withValues(alpha: .85),
           ),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 19, color: TwinColors.burgundy),
-            const SizedBox(width: 10),
+            if (heart) ...[
+              const Icon(
+                Icons.favorite_outline_rounded,
+                size: 20,
+                color: TwinColors.burgundy,
+              ),
+              const SizedBox(width: 10),
+            ],
             Expanded(
-              child: Text(
-                value == null ? label : label + ' · ' + _formatDate(value!),
-                style: TextStyle(
-                  color: value == null ? TwinColors.muted : TwinColors.ink,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: TwinColors.mocha,
+                      fontSize: TwinType.caption,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    value == null ? 'DD / MM / AAAA' : _formatDate(value!),
+                    style: TextStyle(
+                      color:
+                          value == null ? TwinColors.muted : TwinColors.ink,
+                      fontSize: TwinType.input,
+                      letterSpacing: value == null ? .4 : 0,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
             const Icon(
@@ -831,16 +859,12 @@ class _DateCard extends StatelessWidget {
 
 class _ToggleCard extends StatelessWidget {
   const _ToggleCard({
-    required this.icon,
     required this.title,
-    required this.subtitle,
     required this.value,
     required this.onChanged,
   });
 
-  final IconData icon;
   final String title;
-  final String subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
 
@@ -848,50 +872,26 @@ class _ToggleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
-      padding: const EdgeInsets.fromLTRB(13, 11, 9, 11),
+      padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(17),
         border: Border.all(
           color: value
               ? TwinColors.sand
-              : TwinColors.sand.withValues(alpha: .6),
+              : TwinColors.sand.withValues(alpha: .62),
         ),
       ),
       child: Row(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: TwinColors.sand.withValues(alpha: value ? .55 : .25),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: TwinColors.burgundy, size: 19),
-          ),
-          const SizedBox(width: 11),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: TwinColors.ink,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: TwinColors.muted,
-                    fontSize: 10.2,
-                    height: 1.3,
-                  ),
-                ),
-              ],
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: TwinColors.ink,
+                fontSize: TwinType.body,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
           Switch.adaptive(
@@ -902,6 +902,35 @@ class _ToggleCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ChoiceWrap extends StatelessWidget {
+  const _ChoiceWrap({
+    required this.values,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  final List<String> values;
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 7,
+      runSpacing: 7,
+      children: values
+          .map(
+            (value) => _ChoicePill(
+              label: value,
+              selected: value == selected,
+              onTap: () => onChanged(value),
+            ),
+          )
+          .toList(),
     );
   }
 }
@@ -936,7 +965,7 @@ class _ChoicePill extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected ? Colors.white : TwinColors.ink,
-            fontSize: 11,
+            fontSize: TwinType.body,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -947,11 +976,13 @@ class _ChoicePill extends StatelessWidget {
 
 class _Footer extends StatelessWidget {
   const _Footer({
+    required this.step,
     required this.isLast,
     required this.error,
     required this.onContinue,
   });
 
+  final int step;
   final bool isLast;
   final String? error;
   final VoidCallback onContinue;
@@ -975,8 +1006,8 @@ class _Footer extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: TwinColors.burgundy,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+                        fontSize: TwinType.caption,
+                        fontWeight: FontWeight.w800,
                       ),
                     ),
                   ),
@@ -997,8 +1028,15 @@ class _Footer extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    isLast ? 'Entrar no nosso espaço' : 'Continuar',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    isLast
+                        ? 'Entrar no nosso espaço'
+                        : step == 0
+                            ? 'Começar'
+                            : 'Continuar',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: TwinType.body,
+                    ),
                   ),
                   const SizedBox(width: 7),
                   const Icon(Icons.arrow_forward_rounded, size: 18),
@@ -1007,6 +1045,54 @@ class _Footer extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SoftHeart extends StatelessWidget {
+  const _SoftHeart({
+    required this.size,
+    required this.opacity,
+  });
+
+  final double size;
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Icon(
+        Icons.favorite_rounded,
+        size: size,
+        color: TwinColors.burgundy.withValues(alpha: opacity),
+      ),
+    );
+  }
+}
+
+class _GlassHeart extends StatelessWidget {
+  const _GlassHeart({this.small = false});
+
+  final bool small;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = small ? 34.0 : 42.0;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .15),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: Colors.white.withValues(alpha: .35),
+        ),
+      ),
+      child: Icon(
+        Icons.favorite_rounded,
+        color: Colors.white,
+        size: small ? 15 : 19,
       ),
     );
   }
@@ -1036,5 +1122,5 @@ class _BrandMark extends StatelessWidget {
 String _formatDate(DateTime date) {
   final day = date.day.toString().padLeft(2, '0');
   final month = date.month.toString().padLeft(2, '0');
-  return day + '/' + month + '/' + date.year.toString();
+  return day + ' / ' + month + ' / ' + date.year.toString();
 }
