@@ -21,6 +21,21 @@ extension CalendarEntryTypeUi on CalendarEntryType {
     }
   }
 
+  String get singular {
+    switch (this) {
+      case CalendarEntryType.fight:
+        return 'Briga';
+      case CalendarEntryType.special:
+        return 'Data especial';
+      case CalendarEntryType.intimacy:
+        return 'Intimidade';
+      case CalendarEntryType.commitment:
+        return 'Compromisso';
+      case CalendarEntryType.cycle:
+        return 'Menstruação';
+    }
+  }
+
   IconData get icon {
     switch (this) {
       case CalendarEntryType.fight:
@@ -54,16 +69,20 @@ extension CalendarEntryTypeUi on CalendarEntryType {
 
 class CalendarEntry {
   const CalendarEntry({
+    required this.id,
     required this.type,
     required this.date,
     required this.title,
+    this.endDate,
     this.time,
     this.details = const {},
     this.annual = false,
   });
 
+  final String id;
   final CalendarEntryType type;
   final DateTime date;
+  final DateTime? endDate;
   final String title;
   final TimeOfDay? time;
   final Map<String, String> details;
@@ -73,9 +92,27 @@ class CalendarEntry {
     if (annual) {
       return date.month == day.month && date.day == day.day;
     }
-    return date.year == day.year &&
-        date.month == day.month &&
-        date.day == day.day;
+
+    final start = DateTime(date.year, date.month, date.day);
+    final target = DateTime(day.year, day.month, day.day);
+    final end = endDate == null
+        ? start
+        : DateTime(endDate!.year, endDate!.month, endDate!.day);
+
+    return !target.isBefore(start) && !target.isAfter(end);
+  }
+
+  bool occursInMonth(DateTime month) {
+    if (annual) return date.month == month.month;
+
+    final monthStart = DateTime(month.year, month.month, 1);
+    final monthEnd = DateTime(month.year, month.month + 1, 0);
+    final start = DateTime(date.year, date.month, date.day);
+    final end = endDate == null
+        ? start
+        : DateTime(endDate!.year, endDate!.month, endDate!.day);
+
+    return !end.isBefore(monthStart) && !start.isAfter(monthEnd);
   }
 }
 
@@ -119,14 +156,26 @@ class _CalendarPageState extends State<CalendarPage> {
     entries = _seedEntries();
   }
 
+  String _seedId(String prefix, DateTime date) {
+    return prefix +
+        '-' +
+        date.year.toString() +
+        '-' +
+        date.month.toString() +
+        '-' +
+        date.day.toString();
+  }
+
   List<CalendarEntry> _seedEntries() {
     final result = <CalendarEntry>[];
 
     if (widget.setup.relationshipDate != null) {
+      final date = widget.setup.relationshipDate!;
       result.add(
         CalendarEntry(
+          id: _seedId('relationship', date),
           type: CalendarEntryType.special,
-          date: widget.setup.relationshipDate!,
+          date: date,
           title: 'Nossa data especial',
           details: {'Tipo': widget.setup.relationshipStatus},
           annual: true,
@@ -135,33 +184,42 @@ class _CalendarPageState extends State<CalendarPage> {
     }
 
     if (widget.setup.userBirthday != null) {
+      final date = widget.setup.userBirthday!;
       result.add(
         CalendarEntry(
+          id: _seedId('birthday-user', date),
           type: CalendarEntryType.special,
-          date: widget.setup.userBirthday!,
+          date: date,
           title: 'Aniversário de ' + widget.setup.userName,
+          details: {'Repetição': 'Todos os anos'},
           annual: true,
         ),
       );
     }
 
     if (widget.setup.partnerBirthday != null) {
+      final date = widget.setup.partnerBirthday!;
       result.add(
         CalendarEntry(
+          id: _seedId('birthday-partner', date),
           type: CalendarEntryType.special,
-          date: widget.setup.partnerBirthday!,
+          date: date,
           title: 'Aniversário de ' + widget.setup.partnerName,
+          details: {'Repetição': 'Todos os anos'},
           annual: true,
         ),
       );
     }
 
     if (widget.setup.lastIntimacyDate != null) {
+      final date = widget.setup.lastIntimacyDate!;
       result.add(
         CalendarEntry(
+          id: _seedId('intimacy', date),
           type: CalendarEntryType.intimacy,
-          date: widget.setup.lastIntimacyDate!,
+          date: date,
           title: 'Momento íntimo',
+          details: const {'Conexão': 'Não informado'},
         ),
       );
     }
@@ -183,6 +241,13 @@ class _CalendarPageState extends State<CalendarPage> {
     return values;
   }
 
+  int _monthCount(CalendarEntryType type) {
+    return entries
+        .where((entry) => entry.type == type)
+        .where((entry) => entry.occursInMonth(visibleMonth))
+        .length;
+  }
+
   void _changeMonth(int delta) {
     final next = DateTime(visibleMonth.year, visibleMonth.month + delta);
     setState(() {
@@ -191,22 +256,88 @@ class _CalendarPageState extends State<CalendarPage> {
     });
   }
 
-  Future<void> _addEntry() async {
-    final entry = await showModalBottomSheet<CalendarEntry>(
+  void _goToday() {
+    final now = DateTime.now();
+    setState(() {
+      visibleMonth = DateTime(now.year, now.month);
+      selectedDate = DateTime(now.year, now.month, now.day);
+    });
+  }
+
+  Future<CalendarEntry?> _openEditor({
+    CalendarEntry? initial,
+    CalendarEntryType? initialType,
+  }) {
+    return showModalBottomSheet<CalendarEntry>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
       backgroundColor: TwinColors.ivory,
-      builder: (context) => _EventEditor(date: selectedDate),
+      builder: (context) => _EventEditor(
+        date: initial?.date ?? selectedDate,
+        initial: initial,
+        initialType: initialType,
+      ),
     );
-
-    if (entry == null || !mounted) return;
-    setState(() => entries.add(entry));
   }
 
-  void _openDetails(CalendarEntry entry) {
-    showModalBottomSheet<void>(
+  Future<void> _addEntry([CalendarEntryType? type]) async {
+    final entry = await _openEditor(initialType: type);
+    if (entry == null || !mounted) return;
+
+    setState(() {
+      entries.add(entry);
+      selectedDate = entry.date;
+      visibleMonth = DateTime(entry.date.year, entry.date.month);
+    });
+  }
+
+  Future<void> _editEntry(CalendarEntry entry) async {
+    final updated = await _openEditor(initial: entry);
+    if (updated == null || !mounted) return;
+
+    final index = entries.indexWhere((item) => item.id == entry.id);
+    if (index == -1) return;
+
+    setState(() {
+      entries[index] = updated;
+      selectedDate = updated.date;
+      visibleMonth = DateTime(updated.date.year, updated.date.month);
+    });
+  }
+
+  Future<void> _deleteEntry(CalendarEntry entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Excluir registro?'),
+        content: Text(
+          '“' + entry.title + '” será removido do calendário.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFA34848),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Excluir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    setState(() => entries.removeWhere((item) => item.id == entry.id));
+  }
+
+  Future<void> _openDetails(CalendarEntry entry) async {
+    final action = await showModalBottomSheet<_EntryAction>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -214,17 +345,39 @@ class _CalendarPageState extends State<CalendarPage> {
       backgroundColor: TwinColors.ivory,
       builder: (context) => _EntryDetails(entry: entry),
     );
+
+    if (!mounted) return;
+    if (action == _EntryAction.edit) {
+      await _editEntry(entry);
+    } else if (action == _EntryAction.delete) {
+      await _deleteEntry(entry);
+    }
+  }
+
+  CalendarEntry? get _cycleEntryForSelectedDay {
+    for (final entry in entries.reversed) {
+      if (entry.type == CalendarEntryType.cycle &&
+          entry.occursOn(selectedDate)) {
+        return entry;
+      }
+    }
+    return null;
   }
 
   @override
   Widget build(BuildContext context) {
+    final cycleEntry = _cycleEntryForSelectedDay;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 100),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _CalendarHeader(onAdd: _addEntry),
-          const SizedBox(height: 14),
+          _CalendarHeader(
+            onAdd: () => _addEntry(),
+            onToday: _goToday,
+          ),
+          const SizedBox(height: 13),
           _MonthCard(
             visibleMonth: visibleMonth,
             selectedDate: selectedDate,
@@ -235,14 +388,25 @@ class _CalendarPageState extends State<CalendarPage> {
             onNext: () => _changeMonth(1),
             onSelect: (date) => setState(() => selectedDate = date),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          _MonthSummary(
+            fightCount: _monthCount(CalendarEntryType.fight),
+            intimacyCount: _monthCount(CalendarEntryType.intimacy),
+            specialCount: _monthCount(CalendarEntryType.special),
+            cycleCount: _monthCount(CalendarEntryType.cycle),
+          ),
+          const SizedBox(height: 10),
           _FilterBar(
             selected: filter,
             onChanged: (value) => setState(() => filter = value),
           ),
-          const SizedBox(height: 18),
+          if (cycleEntry != null) ...[
+            const SizedBox(height: 12),
+            _CareTip(entry: cycleEntry),
+          ],
+          const SizedBox(height: 17),
           _DayHeading(date: selectedDate, count: selectedEntries.length),
-          const SizedBox(height: 10),
+          const SizedBox(height: 9),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             child: selectedEntries.isEmpty
@@ -253,7 +417,7 @@ class _CalendarPageState extends State<CalendarPage> {
                           '-' +
                           filter.toString(),
                     ),
-                    onAdd: _addEntry,
+                    onAdd: () => _addEntry(),
                   )
                 : Column(
                     key: ValueKey(
@@ -275,6 +439,8 @@ class _CalendarPageState extends State<CalendarPage> {
                     ],
                   ),
           ),
+          const SizedBox(height: 10),
+          _QuickAdd(onAdd: _addEntry),
         ],
       ),
     );
@@ -282,9 +448,13 @@ class _CalendarPageState extends State<CalendarPage> {
 }
 
 class _CalendarHeader extends StatelessWidget {
-  const _CalendarHeader({required this.onAdd});
+  const _CalendarHeader({
+    required this.onAdd,
+    required this.onToday,
+  });
 
   final VoidCallback onAdd;
+  final VoidCallback onToday;
 
   @override
   Widget build(BuildContext context) {
@@ -306,18 +476,33 @@ class _CalendarHeader extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               const Text(
-                'A história de vocês, dia por dia.',
+                'Datas, intimidade, ciclo e o que vocês viveram.',
                 style: TextStyle(
                   color: TwinColors.muted,
-                  fontSize: 11.5,
+                  fontSize: 11,
                 ),
               ),
             ],
           ),
         ),
+        TextButton(
+          onPressed: onToday,
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            foregroundColor: TwinColors.burgundy,
+          ),
+          child: const Text(
+            'Hoje',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 2),
         SizedBox(
-          width: 42,
-          height: 42,
+          width: 40,
+          height: 40,
           child: IconButton.filled(
             onPressed: onAdd,
             style: IconButton.styleFrom(
@@ -361,10 +546,10 @@ class _MonthCard extends StatelessWidget {
         DateTime(visibleMonth.year, visibleMonth.month + 1, 0).day;
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      padding: const EdgeInsets.fromLTRB(11, 8, 11, 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: TwinColors.sand.withValues(alpha: .72),
         ),
@@ -384,7 +569,7 @@ class _MonthCard extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: TwinColors.ink,
-                    fontSize: 12.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -396,7 +581,7 @@ class _MonthCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 1),
           Row(
             children: weekdays
                 .map(
@@ -406,7 +591,7 @@ class _MonthCard extends StatelessWidget {
                         day,
                         style: const TextStyle(
                           color: TwinColors.muted,
-                          fontSize: 8.5,
+                          fontSize: 8.2,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
@@ -415,14 +600,14 @@ class _MonthCard extends StatelessWidget {
                 )
                 .toList(),
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 3),
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: 42,
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 7,
-              childAspectRatio: 1.02,
+              childAspectRatio: 1.08,
             ),
             itemBuilder: (context, index) {
               final day = index - offset + 1;
@@ -448,8 +633,8 @@ class _MonthCard extends StatelessWidget {
                 child: Center(
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
-                    width: 37,
-                    height: 37,
+                    width: 35,
+                    height: 35,
                     decoration: BoxDecoration(
                       color:
                           selected ? TwinColors.burgundy : Colors.transparent,
@@ -466,7 +651,7 @@ class _MonthCard extends StatelessWidget {
                           style: TextStyle(
                             color:
                                 selected ? Colors.white : TwinColors.ink,
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: selected || today
                                 ? FontWeight.w800
                                 : FontWeight.w500,
@@ -474,16 +659,16 @@ class _MonthCard extends StatelessWidget {
                         ),
                         if (colors.isNotEmpty)
                           Positioned(
-                            bottom: 3,
+                            bottom: 2,
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 for (final color in colors)
                                   Container(
-                                    width: 4,
-                                    height: 4,
+                                    width: 3.5,
+                                    height: 3.5,
                                     margin: const EdgeInsets.symmetric(
-                                      horizontal: 1,
+                                      horizontal: .8,
                                     ),
                                     decoration: BoxDecoration(
                                       color:
@@ -507,6 +692,88 @@ class _MonthCard extends StatelessWidget {
   }
 }
 
+class _MonthSummary extends StatelessWidget {
+  const _MonthSummary({
+    required this.fightCount,
+    required this.intimacyCount,
+    required this.specialCount,
+    required this.cycleCount,
+  });
+
+  final int fightCount;
+  final int intimacyCount;
+  final int specialCount;
+  final int cycleCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = [
+      ('Brigas', fightCount, CalendarEntryType.fight.color),
+      ('Intimidade', intimacyCount, CalendarEntryType.intimacy.color),
+      ('Especiais', specialCount, CalendarEntryType.special.color),
+      ('Ciclo', cycleCount, CalendarEntryType.cycle.color),
+    ];
+
+    return SizedBox(
+      height: 49,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemBuilder: (context, index) {
+          final item = items[index];
+          return Container(
+            constraints: const BoxConstraints(minWidth: 82),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(
+                color: TwinColors.sand.withValues(alpha: .7),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: item.$3,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 7),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      item.$2.toString(),
+                      style: const TextStyle(
+                        color: TwinColors.ink,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      item.$1,
+                      style: const TextStyle(
+                        color: TwinColors.muted,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _FilterBar extends StatelessWidget {
   const _FilterBar({
     required this.selected,
@@ -524,11 +791,11 @@ class _FilterBar extends StatelessWidget {
     ];
 
     return SizedBox(
-      height: 35,
+      height: 34,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: options.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
           final type = options[index];
           final active = selected == type;
@@ -539,7 +806,7 @@ class _FilterBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(99),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
-              padding: const EdgeInsets.symmetric(horizontal: 11),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
                 color: active ? TwinColors.burgundy : Colors.white,
                 borderRadius: BorderRadius.circular(99),
@@ -559,13 +826,13 @@ class _FilterBar extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 5),
                   ],
                   Text(
                     label,
                     style: TextStyle(
                       color: active ? Colors.white : TwinColors.ink,
-                      fontSize: 10,
+                      fontSize: 9.6,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -574,6 +841,67 @@ class _FilterBar extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _CareTip extends StatelessWidget {
+  const _CareTip({required this.entry});
+
+  final CalendarEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final symptom = entry.details['Sintomas'];
+    final flow = entry.details['Fluxo'];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8E9EE),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: CalendarEntryType.cycle.color.withValues(alpha: .22),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.favorite_outline_rounded,
+            color: Color(0xFF9C4965),
+            size: 20,
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Um pouco mais de carinho hoje',
+                  style: TextStyle(
+                    color: Color(0xFF6C3347),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Se fizer sentido para ela, atenção, descanso, uma flor ou um chocolatinho podem ser um gesto gostoso.' +
+                      (symptom == null ? '' : ' Sintomas: ' + symptom + '.') +
+                      (flow == null ? '' : ' Fluxo: ' + flow + '.'),
+                  style: const TextStyle(
+                    color: Color(0xFF83566A),
+                    fontSize: 9.7,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -598,7 +926,7 @@ class _DayHeading extends StatelessWidget {
             _dayLabel(date),
             style: const TextStyle(
               color: TwinColors.ink,
-              fontSize: 14,
+              fontSize: 13.5,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -607,7 +935,7 @@ class _DayHeading extends StatelessWidget {
           countLabel,
           style: const TextStyle(
             color: TwinColors.muted,
-            fontSize: 10.5,
+            fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -626,15 +954,19 @@ class _EventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeLabel =
         entry.time == null ? '' : ' · ' + _formatTime(entry.time!);
+    final intensity = entry.details['Intensidade'];
+    final extra = entry.type == CalendarEntryType.fight && intensity != null
+        ? ' · intensidade ' + intensity
+        : '';
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(19),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.fromLTRB(12, 11, 11, 11),
+        padding: const EdgeInsets.fromLTRB(11, 10, 10, 10),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(19),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: TwinColors.sand.withValues(alpha: .72),
           ),
@@ -642,8 +974,8 @@ class _EventTile extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 39,
-              height: 39,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 color: entry.type.color.withValues(alpha: .12),
                 borderRadius: BorderRadius.circular(12),
@@ -651,10 +983,10 @@ class _EventTile extends StatelessWidget {
               child: Icon(
                 entry.type.icon,
                 color: entry.type.color,
-                size: 19,
+                size: 18,
               ),
             ),
-            const SizedBox(width: 11),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,16 +997,18 @@ class _EventTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: TwinColors.ink,
-                      fontSize: 12,
+                      fontSize: 11.8,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
-                    entry.type.label + timeLabel,
+                    entry.type.singular + timeLabel + extra,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: TwinColors.muted,
-                      fontSize: 10.5,
+                      fontSize: 9.8,
                     ),
                   ),
                 ],
@@ -683,7 +1017,7 @@ class _EventTile extends StatelessWidget {
             const Icon(
               Icons.chevron_right_rounded,
               color: TwinColors.mocha,
-              size: 19,
+              size: 18,
             ),
           ],
         ),
@@ -702,33 +1036,35 @@ class _EmptyDay extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
-        vertical: 22,
-        horizontal: 18,
+        vertical: 18,
+        horizontal: 16,
       ),
       decoration: BoxDecoration(
         color: TwinColors.sand.withValues(alpha: .24),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
         children: [
           const Icon(
             Icons.calendar_today_outlined,
             color: TwinColors.mocha,
-            size: 25,
+            size: 23,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           const Text(
             'Esse dia ainda está em branco.',
             style: TextStyle(
               color: TwinColors.ink,
-              fontSize: 12,
+              fontSize: 11.5,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 8),
           TextButton(
             onPressed: onAdd,
-            child: const Text('Adicionar ao calendário'),
+            child: const Text(
+              'Adicionar registro',
+              style: TextStyle(fontSize: 10.5),
+            ),
           ),
         ],
       ),
@@ -736,33 +1072,215 @@ class _EmptyDay extends StatelessWidget {
   }
 }
 
+class _QuickAdd extends StatelessWidget {
+  const _QuickAdd({required this.onAdd});
+
+  final ValueChanged<CalendarEntryType?> onAdd;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Adicionar rápido',
+          style: TextStyle(
+            color: TwinColors.muted,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: .5,
+          ),
+        ),
+        const SizedBox(height: 7),
+        Row(
+          children: [
+            Expanded(
+              child: _QuickButton(
+                type: CalendarEntryType.fight,
+                onTap: () => onAdd(CalendarEntryType.fight),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: _QuickButton(
+                type: CalendarEntryType.intimacy,
+                onTap: () => onAdd(CalendarEntryType.intimacy),
+              ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: _QuickButton(
+                type: CalendarEntryType.cycle,
+                onTap: () => onAdd(CalendarEntryType.cycle),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickButton extends StatelessWidget {
+  const _QuickButton({
+    required this.type,
+    required this.onTap,
+  });
+
+  final CalendarEntryType type;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(15),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 7),
+        decoration: BoxDecoration(
+          color: type.color.withValues(alpha: .09),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(
+            color: type.color.withValues(alpha: .17),
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(type.icon, size: 17, color: type.color),
+            const SizedBox(height: 4),
+            Text(
+              type.singular,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: TwinColors.ink,
+                fontSize: 8.8,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _EventEditor extends StatefulWidget {
-  const _EventEditor({required this.date});
+  const _EventEditor({
+    required this.date,
+    this.initial,
+    this.initialType,
+  });
 
   final DateTime date;
+  final CalendarEntry? initial;
+  final CalendarEntryType? initialType;
 
   @override
   State<_EventEditor> createState() => _EventEditorState();
 }
 
 class _EventEditorState extends State<_EventEditor> {
-  final title = TextEditingController();
-  final reason = TextEditingController();
+  late final TextEditingController title;
+  late final TextEditingController reason;
+  late final TextEditingController notes;
 
-  CalendarEntryType type = CalendarEntryType.special;
+  late CalendarEntryType type;
+  late DateTime date;
+  DateTime? endDate;
   TimeOfDay time = TimeOfDay.now();
+  bool hasTime = false;
+  bool annual = false;
+
   int intensity = 2;
   String feeling = 'Chateação';
   String participation = 'Nós dois';
   String resolution = 'Conversamos e nos entendemos';
   String duration = '10–30 min';
+
+  String connection = 'Boa';
+  String cycleFlow = 'Médio';
+  final Set<String> cycleSymptoms = {};
   String? error;
+
+  bool get isEditing => widget.initial != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    type = initial?.type ?? widget.initialType ?? CalendarEntryType.special;
+    date = initial?.date ?? widget.date;
+    endDate = initial?.endDate;
+    time = initial?.time ?? TimeOfDay.now();
+    hasTime = initial?.time != null;
+    annual = initial?.annual ?? false;
+
+    title = TextEditingController(text: initial?.title ?? '');
+    reason = TextEditingController(
+      text: initial?.details['Motivo'] ?? '',
+    );
+    notes = TextEditingController(
+      text: initial?.details['Observações'] ?? '',
+    );
+
+    intensity =
+        _parseIntensity(initial?.details['Intensidade']) ?? 2;
+    feeling = initial?.details['Sentimento'] ?? 'Chateação';
+    participation =
+        initial?.details['Participação'] ?? 'Nós dois';
+    resolution = initial?.details['Resolução'] ??
+        'Conversamos e nos entendemos';
+    duration = initial?.details['Duração'] ?? '10–30 min';
+    connection = initial?.details['Conexão'] ?? 'Boa';
+    cycleFlow = initial?.details['Fluxo'] ?? 'Médio';
+
+    final symptomText = initial?.details['Sintomas'];
+    if (symptomText != null && symptomText != 'Nenhum informado') {
+      cycleSymptoms.addAll(
+        symptomText
+            .split(', ')
+            .where((value) => value.trim().isNotEmpty),
+      );
+    }
+  }
+
+  int? _parseIntensity(String? value) {
+    if (value == null || value.isEmpty) return null;
+    return int.tryParse(value.split('/').first);
+  }
 
   @override
   void dispose() {
     title.dispose();
     reason.dispose();
+    notes.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickDate({bool end = false}) async {
+    final value = await showDatePicker(
+      context: context,
+      initialDate: end ? (endDate ?? date) : date,
+      firstDate: DateTime(1940),
+      lastDate: DateTime(2100),
+      helpText: end ? 'Fim do ciclo' : 'Data do registro',
+      cancelText: 'Cancelar',
+      confirmText: 'Confirmar',
+    );
+
+    if (value == null) return;
+
+    setState(() {
+      if (end) {
+        endDate = value.isBefore(date) ? date : value;
+      } else {
+        date = value;
+        if (endDate != null && endDate!.isBefore(date)) {
+          endDate = date;
+        }
+      }
+    });
   }
 
   Future<void> _pickTime() async {
@@ -770,16 +1288,36 @@ class _EventEditorState extends State<_EventEditor> {
       context: context,
       initialTime: time,
     );
-    if (value != null) {
-      setState(() => time = value);
-    }
+    if (value != null) setState(() => time = value);
+  }
+
+  void _changeType(CalendarEntryType value) {
+    setState(() {
+      type = value;
+      error = null;
+      if (type == CalendarEntryType.cycle) {
+        hasTime = false;
+        annual = false;
+      }
+    });
   }
 
   void _save() {
+    setState(() => error = null);
+
     if (type == CalendarEntryType.fight &&
         reason.text.trim().isEmpty) {
       setState(() {
-        error = 'Conte resumidamente o motivo da discussão.';
+        error = 'Conte resumidamente o que iniciou a discussão.';
+      });
+      return;
+    }
+
+    if ((type == CalendarEntryType.commitment ||
+            type == CalendarEntryType.special) &&
+        title.text.trim().isEmpty) {
+      setState(() {
+        error = 'Dê um nome para esse registro.';
       });
       return;
     }
@@ -799,11 +1337,12 @@ class _EventEditorState extends State<_EventEditor> {
         autoTitle = 'Compromisso';
         break;
       case CalendarEntryType.cycle:
-        autoTitle = 'Ciclo menstrual';
+        autoTitle = 'Menstruação';
         break;
     }
 
     final details = <String, String>{};
+
     if (type == CalendarEntryType.fight) {
       details.addAll({
         'Motivo': reason.text.trim(),
@@ -813,17 +1352,36 @@ class _EventEditorState extends State<_EventEditor> {
         'Duração': duration,
         'Resolução': resolution,
       });
+    } else if (type == CalendarEntryType.intimacy) {
+      details['Conexão'] = connection;
+    } else if (type == CalendarEntryType.cycle) {
+      details['Fluxo'] = cycleFlow;
+      details['Sintomas'] = cycleSymptoms.isEmpty
+          ? 'Nenhum informado'
+          : cycleSymptoms.join(', ');
+    }
+
+    if (notes.text.trim().isNotEmpty) {
+      details['Observações'] = notes.text.trim();
+    }
+
+    if (annual && type == CalendarEntryType.special) {
+      details['Repetição'] = 'Todos os anos';
     }
 
     Navigator.of(context).pop(
       CalendarEntry(
+        id: widget.initial?.id ??
+            DateTime.now().microsecondsSinceEpoch.toString(),
         type: type,
-        date: widget.date,
+        date: date,
+        endDate: type == CalendarEntryType.cycle ? endDate : null,
         title: title.text.trim().isEmpty
             ? autoTitle
             : title.text.trim(),
-        time: time,
+        time: hasTime && type != CalendarEntryType.cycle ? time : null,
         details: details,
+        annual: type == CalendarEntryType.special && annual,
       ),
     );
   }
@@ -839,7 +1397,7 @@ class _EventEditorState extends State<_EventEditor> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Adicionar registro',
+              isEditing ? 'Editar registro' : 'Adicionar registro',
               style: GoogleFonts.cormorantGaramond(
                 fontSize: 28,
                 fontWeight: FontWeight.w600,
@@ -848,38 +1406,35 @@ class _EventEditorState extends State<_EventEditor> {
             ),
             const SizedBox(height: 3),
             Text(
-              _dayLabel(widget.date),
+              isEditing
+                  ? 'Ajuste as informações desse momento.'
+                  : 'Registre o que aconteceu nesse dia.',
               style: const TextStyle(
                 color: TwinColors.muted,
-                fontSize: 11,
+                fontSize: 10.5,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 13),
             SizedBox(
-              height: 72,
+              height: 70,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: CalendarEntryType.values.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                separatorBuilder: (_, __) => const SizedBox(width: 7),
                 itemBuilder: (context, index) {
                   final item = CalendarEntryType.values[index];
                   final active = item == type;
 
                   return InkWell(
-                    onTap: () {
-                      setState(() {
-                        type = item;
-                        error = null;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => _changeType(item),
+                    borderRadius: BorderRadius.circular(17),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
-                      width: 82,
-                      padding: const EdgeInsets.all(9),
+                      width: 80,
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: active ? item.color : Colors.white,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(17),
                         border: Border.all(
                           color: active ? item.color : TwinColors.sand,
                         ),
@@ -889,19 +1444,19 @@ class _EventEditorState extends State<_EventEditor> {
                         children: [
                           Icon(
                             item.icon,
-                            color:
-                                active ? Colors.white : item.color,
-                            size: 20,
+                            color: active ? Colors.white : item.color,
+                            size: 19,
                           ),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: 4),
                           Text(
-                            item.label,
+                            item.singular,
                             maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: active
                                   ? Colors.white
                                   : TwinColors.ink,
-                              fontSize: 9.5,
+                              fontSize: 9.2,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -913,35 +1468,52 @@ class _EventEditorState extends State<_EventEditor> {
               ),
             ),
             const SizedBox(height: 12),
+            _EditorDateRow(
+              date: date,
+              onTap: () => _pickDate(),
+            ),
+            if (type == CalendarEntryType.cycle) ...[
+              const SizedBox(height: 8),
+              _EditorDateRow(
+                date: endDate,
+                label: 'Fim do ciclo (opcional)',
+                onTap: () => _pickDate(end: true),
+              ),
+            ],
+            if (type != CalendarEntryType.cycle) ...[
+              const SizedBox(height: 8),
+              _TimeToggle(
+                value: hasTime,
+                time: time,
+                onChanged: (value) => setState(() => hasTime = value),
+                onPick: _pickTime,
+              ),
+            ],
+            const SizedBox(height: 10),
             TextField(
               controller: title,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Título opcional',
-                hintText: 'Ex.: Nosso jantar',
+              decoration: InputDecoration(
+                labelText: type == CalendarEntryType.special ||
+                        type == CalendarEntryType.commitment
+                    ? 'Título'
+                    : 'Título opcional',
+                hintText: _titleHint(type),
               ),
             ),
-            const SizedBox(height: 10),
-            InkWell(
-              onTap: _pickTime,
-              borderRadius: BorderRadius.circular(18),
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Horário',
-                  prefixIcon: Icon(Icons.schedule_rounded),
-                ),
-                child: Text(
-                  _formatTime(time),
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+            if (type == CalendarEntryType.special) ...[
+              const SizedBox(height: 8),
+              _SwitchLine(
+                title: 'Repetir todos os anos',
+                subtitle: 'Ideal para aniversários e datas do casal.',
+                value: annual,
+                onChanged: (value) => setState(() => annual = value),
               ),
-            ),
+            ],
             if (type == CalendarEntryType.fight) ...[
-              const SizedBox(height: 15),
+              const SizedBox(height: 14),
               const _EditorLabel(
-                'O que fez essa situação começar?',
+                'Pensando com calma, o que fez isso começar?',
               ),
               const SizedBox(height: 7),
               TextField(
@@ -950,10 +1522,10 @@ class _EventEditorState extends State<_EventEditor> {
                 maxLines: 3,
                 decoration: const InputDecoration(
                   hintText:
-                      'Conte de forma curta e sem julgamentos.',
+                      'Descreva o motivo sem culpar ou atacar.',
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 13),
               const _EditorLabel('Intensidade'),
               const SizedBox(height: 7),
               Row(
@@ -984,7 +1556,7 @@ class _EventEditorState extends State<_EventEditor> {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 13),
               const _EditorLabel('O que você sentiu?'),
               const SizedBox(height: 7),
               _WrapChoices(
@@ -999,9 +1571,9 @@ class _EventEditorState extends State<_EventEditor> {
                   setState(() => feeling = value);
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 13),
               const _EditorLabel(
-                'Como você percebeu o início?',
+                'Como você percebe a participação de vocês?',
               ),
               const SizedBox(height: 7),
               _WrapChoices(
@@ -1016,7 +1588,7 @@ class _EventEditorState extends State<_EventEditor> {
                   setState(() => participation = value);
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 13),
               const _EditorLabel('Quanto tempo durou?'),
               const SizedBox(height: 7),
               _WrapChoices(
@@ -1031,7 +1603,7 @@ class _EventEditorState extends State<_EventEditor> {
                   setState(() => duration = value);
                 },
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 13),
               const _EditorLabel(
                 'Como a situação foi resolvida?',
               ),
@@ -1049,21 +1621,79 @@ class _EventEditorState extends State<_EventEditor> {
                 },
               ),
             ],
+            if (type == CalendarEntryType.intimacy) ...[
+              const SizedBox(height: 14),
+              const _EditorLabel(
+                'Como você percebeu a conexão entre vocês?',
+              ),
+              const SizedBox(height: 7),
+              _WrapChoices(
+                values: const ['Muito boa', 'Boa', 'Neutra', 'Distante'],
+                selected: connection,
+                onChanged: (value) {
+                  setState(() => connection = value);
+                },
+              ),
+            ],
+            if (type == CalendarEntryType.cycle) ...[
+              const SizedBox(height: 14),
+              const _EditorLabel('Fluxo'),
+              const SizedBox(height: 7),
+              _WrapChoices(
+                values: const ['Leve', 'Médio', 'Intenso'],
+                selected: cycleFlow,
+                onChanged: (value) {
+                  setState(() => cycleFlow = value);
+                },
+              ),
+              const SizedBox(height: 13),
+              const _EditorLabel('Sintomas'),
+              const SizedBox(height: 7),
+              _MultiChoices(
+                values: const [
+                  'Cólica',
+                  'Dor de cabeça',
+                  'Cansaço',
+                  'Sensibilidade',
+                  'Irritabilidade',
+                  'Inchaço',
+                ],
+                selected: cycleSymptoms,
+                onToggle: (value) {
+                  setState(() {
+                    cycleSymptoms.contains(value)
+                        ? cycleSymptoms.remove(value)
+                        : cycleSymptoms.add(value);
+                  });
+                },
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: notes,
+              minLines: 2,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                labelText: 'Observações',
+                hintText: 'Algo que vocês queiram lembrar depois...',
+              ),
+            ),
             if (error != null) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 9),
               Text(
                 error!,
                 style: const TextStyle(
                   color: TwinColors.burgundy,
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ],
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 49,
               child: FilledButton(
                 onPressed: _save,
                 style: FilledButton.styleFrom(
@@ -1073,14 +1703,175 @@ class _EventEditorState extends State<_EventEditor> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text(
-                  'Salvar no calendário',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+                child: Text(
+                  isEditing
+                      ? 'Salvar alterações'
+                      : 'Salvar no calendário',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EditorDateRow extends StatelessWidget {
+  const _EditorDateRow({
+    required this.date,
+    required this.onTap,
+    this.label = 'Data',
+  });
+
+  final DateTime? date;
+  final VoidCallback onTap;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(17),
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: const Icon(Icons.calendar_month_outlined),
+        ),
+        child: Text(
+          date == null ? 'Selecionar' : _formatDate(date!),
+          style: TextStyle(
+            color: date == null ? TwinColors.muted : TwinColors.ink,
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TimeToggle extends StatelessWidget {
+  const _TimeToggle({
+    required this.value,
+    required this.time,
+    required this.onChanged,
+    required this.onPick,
+  });
+
+  final bool value;
+  final TimeOfDay time;
+  final ValueChanged<bool> onChanged;
+  final VoidCallback onPick;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(13, 7, 8, 7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(17),
+        border: Border.all(
+          color: TwinColors.sand.withValues(alpha: .75),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.schedule_rounded,
+            color: TwinColors.burgundy,
+            size: 20,
+          ),
+          const SizedBox(width: 9),
+          const Expanded(
+            child: Text(
+              'Adicionar horário',
+              style: TextStyle(
+                color: TwinColors.ink,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (value)
+            TextButton(
+              onPressed: onPick,
+              child: Text(
+                _formatTime(time),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: TwinColors.burgundy,
+            activeThumbColor: Colors.white,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwitchLine extends StatelessWidget {
+  const _SwitchLine({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      decoration: BoxDecoration(
+        color: TwinColors.sand.withValues(alpha: .20),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: TwinColors.ink,
+                    fontSize: 10.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: TwinColors.muted,
+                    fontSize: 9.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: TwinColors.burgundy,
+            activeThumbColor: Colors.white,
+          ),
+        ],
       ),
     );
   }
@@ -1097,7 +1888,7 @@ class _EditorLabel extends StatelessWidget {
       text,
       style: const TextStyle(
         color: TwinColors.ink,
-        fontSize: 11.5,
+        fontSize: 11,
         fontWeight: FontWeight.w800,
       ),
     );
@@ -1118,8 +1909,8 @@ class _WrapChoices extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 7,
-      runSpacing: 7,
+      spacing: 6,
+      runSpacing: 6,
       children: values
           .map(
             (value) => _MiniChoice(
@@ -1127,6 +1918,36 @@ class _WrapChoices extends StatelessWidget {
               selected: selected == value,
               color: TwinColors.burgundy,
               onTap: () => onChanged(value),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _MultiChoices extends StatelessWidget {
+  const _MultiChoices({
+    required this.values,
+    required this.selected,
+    required this.onToggle,
+  });
+
+  final List<String> values;
+  final Set<String> selected;
+  final ValueChanged<String> onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: values
+          .map(
+            (value) => _MiniChoice(
+              label: value,
+              selected: selected.contains(value),
+              color: CalendarEntryType.cycle.color,
+              onTap: () => onToggle(value),
             ),
           )
           .toList(),
@@ -1169,7 +1990,7 @@ class _MiniChoice extends StatelessWidget {
           label,
           style: TextStyle(
             color: selected ? Colors.white : TwinColors.ink,
-            fontSize: 9.5,
+            fontSize: 9.3,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1177,6 +1998,8 @@ class _MiniChoice extends StatelessWidget {
     );
   }
 }
+
+enum _EntryAction { edit, delete }
 
 class _EntryDetails extends StatelessWidget {
   const _EntryDetails({required this.entry});
@@ -1187,6 +2010,9 @@ class _EntryDetails extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeLabel =
         entry.time == null ? '' : ' · ' + _formatTime(entry.time!);
+    final endLabel = entry.endDate == null
+        ? ''
+        : ' até ' + _formatDate(entry.endDate!);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(18, 0, 18, 22),
@@ -1223,13 +2049,14 @@ class _EntryDetails extends StatelessWidget {
                       ),
                       const SizedBox(height: 3),
                       Text(
-                        entry.type.label +
+                        entry.type.singular +
                             ' · ' +
-                            _dayLabel(entry.date) +
+                            _formatDate(entry.date) +
+                            endLabel +
                             timeLabel,
                         style: const TextStyle(
                           color: TwinColors.muted,
-                          fontSize: 10.5,
+                          fontSize: 10.3,
                         ),
                       ),
                     ],
@@ -1238,17 +2065,95 @@ class _EntryDetails extends StatelessWidget {
               ],
             ),
             if (entry.details.isNotEmpty) ...[
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
               for (final item in entry.details.entries) ...[
                 _DetailRow(
                   label: item.key,
                   value: item.value,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 7),
               ],
             ],
+            if (entry.type == CalendarEntryType.fight) ...[
+              const SizedBox(height: 5),
+              const _NvcCard(),
+            ],
+            const SizedBox(height: 17),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop(_EntryAction.edit);
+                    },
+                    icon: const Icon(Icons.edit_outlined, size: 17),
+                    label: const Text('Editar'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop(_EntryAction.delete);
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFA34848),
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 17),
+                    label: const Text('Excluir'),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NvcCard extends StatelessWidget {
+  const _NvcCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: TwinColors.sand.withValues(alpha: .25),
+        borderRadius: BorderRadius.circular(17),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.chat_bubble_outline_rounded,
+                color: TwinColors.burgundy,
+                size: 17,
+              ),
+              SizedBox(width: 7),
+              Text(
+                'Próximo passo · comunicação não violenta',
+                style: TextStyle(
+                  color: TwinColors.ink,
+                  fontSize: 10.3,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 7),
+          Text(
+            'Tentem conversar em quatro partes: o que aconteceu sem julgamento, o que cada um sentiu, do que precisava e qual pedido concreto pode fazer agora.',
+            style: TextStyle(
+              color: TwinColors.muted,
+              fontSize: 9.7,
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1279,12 +2184,17 @@ class _DetailRow extends StatelessWidget {
       }
     }
 
+    if (label == 'Participação' &&
+        value == 'Meu parceiro teve maior participação') {
+      valueColor = const Color(0xFF4C72A3);
+    }
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(13),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(15),
         border: Border.all(
           color: TwinColors.sand.withValues(alpha: .7),
         ),
@@ -1296,7 +2206,7 @@ class _DetailRow extends StatelessWidget {
             label.toUpperCase(),
             style: const TextStyle(
               color: TwinColors.muted,
-              fontSize: 8.5,
+              fontSize: 8.2,
               fontWeight: FontWeight.w800,
               letterSpacing: .8,
             ),
@@ -1306,13 +2216,28 @@ class _DetailRow extends StatelessWidget {
             value,
             style: TextStyle(
               color: valueColor,
-              fontSize: 11.5,
+              fontSize: 11.2,
               fontWeight: FontWeight.w700,
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+String _titleHint(CalendarEntryType type) {
+  switch (type) {
+    case CalendarEntryType.fight:
+      return 'Ex.: Discussão sobre horários';
+    case CalendarEntryType.special:
+      return 'Ex.: Aniversário de namoro';
+    case CalendarEntryType.intimacy:
+      return 'Ex.: Nossa noite';
+    case CalendarEntryType.commitment:
+      return 'Ex.: Jantar, cinema, viagem...';
+    case CalendarEntryType.cycle:
+      return 'Menstruação';
   }
 }
 
@@ -1326,6 +2251,14 @@ String _formatTime(TimeOfDay time) {
   return time.hour.toString().padLeft(2, '0') +
       ':' +
       time.minute.toString().padLeft(2, '0');
+}
+
+String _formatDate(DateTime date) {
+  return date.day.toString().padLeft(2, '0') +
+      '/' +
+      date.month.toString().padLeft(2, '0') +
+      '/' +
+      date.year.toString();
 }
 
 String _dayLabel(DateTime date) {
