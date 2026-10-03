@@ -23,35 +23,62 @@ class SummaryPage extends StatelessWidget {
               color: TwinColors.burgundy,
               borderRadius: BorderRadius.circular(28),
             ),
-            child: Column(
+            child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('NÃ­vel de conexÃ£o', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                const SizedBox(height: 8),
-                const Row(
+                Text(
+                  'NÃ­vel de conexÃ£o',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                SizedBox(height: 8),
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('84', style: TextStyle(color: Colors.white, fontSize: 48, height: 1, fontWeight: FontWeight.w800)),
+                    Text(
+                      '84',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 48,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                     Padding(
                       padding: EdgeInsets.only(bottom: 6, left: 4),
-                      child: Text('/100', style: TextStyle(color: Colors.white60, fontSize: 13)),
+                      child: Text(
+                        '/100',
+                        style: TextStyle(color: Colors.white60, fontSize: 13),
+                      ),
                     ),
                     Spacer(),
-                    Icon(Icons.favorite_rounded, color: Color(0xFFE7B8B9), size: 32),
+                    Icon(
+                      Icons.favorite_rounded,
+                      color: Color(0xFFE7B8B9),
+                      size: 32,
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: const LinearProgressIndicator(
+                  borderRadius: BorderRadius.all(Radius.circular(8)),
+                  child: LinearProgressIndicator(
                     value: .84,
                     minHeight: 8,
                     backgroundColor: Color(0xFF954555),
-                    valueColor: AlwaysStoppedAnimation(Color(0xFFD4B483)),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      TwinColors.softGold,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text('+12% de conexÃ£o neste mÃªs', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                SizedBox(height: 12),
+                Text(
+                  '+12% de conexÃ£o neste mÃªs',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -72,56 +99,157 @@ class SummaryPage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 28),
-          const TwinSectionTitle('Insights de vocÃªs', action: 'Ver todos'),
+          const TwinSectionTitle(
+            'Insights de vocÃªs',
+            action: 'Ver todos',
+          ),
           const SizedBox(height: 14),
-         ÛÛœİÒ[œÚYÚ
-XÛÛœË™˜]›Üš]WÛİ][™WÜ›İ[™Y	Õ›ØğêœÈ\İ0èÛÈXZ\È™\Ù[\ÉË	Õ]™\˜[HXZ\È[ÛY[ÜÈH]X[YYH[ÜÈ™\İHÙ[X[˜K‰ÊKˆÛÛœİÚ^™Y›Ş
-ZYÚˆL
-KˆÛÛœİÒ[œÚYÚ
-XÛÛœË˜Ú]ØX˜›WÛİ][™WÜ›İ[™Y	ÓXZ\È[]œ˜\È]YH\›Ş[X[IË	ÓÜÈ[ÙÚ[ÜÈ][Y[\˜[HH\ÜÛÈ›Ü[XÙHHÛÛ™^0èÛÈH›ØğêœË‰ÊKˆÛÛœİÚ^™Y›Ş
-ZYÚˆL
-KˆÛÛœİÒ[œÚYÚ
-XÛÛœË˜˜[[˜ÙWÜ›İ[™Y	Ñ\]Z[0ëXœš[È[H]›ÛpéğèÛÉË	ĞH›İ[˜HHÜÈ[ÛY[ÜÈHÚ\ÈšXØ\˜[HXZ\È\]Z[Xœ˜YÜË‰ÊKˆÛÛœİÚ^™Y›Ş
-ZYÚˆŒŠKˆÛÛZ[™\ŠˆY[™ÎˆÛÛœİYÙR[œÙ]Ë˜[
-N
-KˆXÛÜ˜][Ûˆ›ŞXÛÜ˜][ÛŠˆÛÛÜˆÚ[ÛÛÜœËœØ[™Ú]ÜXÚ]J
-Kˆ›Ü™\”˜Y]\Îˆ›Ü™\”˜Y]\Ë˜Ú\˜İ[\ŠŒŠKˆ
-KˆÚ[ˆÛÛœİ›İÊˆÚ[™[ˆÂˆXÛÛŠXÛÛœË›YÚ[—Ûİ][™WÜ›İ[™YÛÛÜˆÚ[ÛÛÜœË\œ˜XÛİJKˆÚ^™Y›Ş
-ÚYˆLŠKˆ^[™Y
-ˆÚ[ˆ^
-ˆ	Ô]YH[™\Ù\˜\™[H[H[\È\İHÙ[X[˜H\˜H˜^™\ˆ[ÛÈ›İ›È[ÜÏÉËˆİ[Nˆ^İ[JÛÛÜˆÚ[ÛÛÜœËš[šËZYÚˆKK›ÛÙZYÚˆ›ÛÙZYÚÍŒ
-Kˆ
-Kˆ
-KˆKˆ
-Kˆ
-KˆKˆ
-Kˆ
-NÂˆBŸB‚˜Û\ÜÈÔİ]^[™Èİ][\ÜÕÚYÙ]ÂˆÛÛœİÔİ]
-\Ë˜[YK\Ë›X™[
-NÂ‚ˆš[˜[İš[™È˜[YNÂˆš[˜[İš[™ÈX™[Â‚ˆİ™\œšYBˆÚYÙ]Z[
-Z[ÛÛ^ÛÛ^
-HÂˆ™]\›ˆÛÛZ[™\ŠˆY[™ÎˆÛÛœİYÙR[œÙ]Ë˜[
-MÊKˆXÛÜ˜][Ûˆ›ŞXÛÜ˜][ÛŠˆÛÛÜˆÛÛÜœËÚ]Kˆ›Ü™\”˜Y]\Îˆ›Ü™\”˜Y]\Ë˜Ú\˜İ[\ŠŒJKˆ›Ü™\ˆ›Ü™\‹˜[
-ÛÛÜˆÚ[ÛÛÜœËœØ[™Ú]ÜXÚ]JMJJKˆ
-KˆÚ[ˆÛÛ[[ŠˆÜ›ÜÜĞ^\Ğ[YÛ›Y[ˆÜ›ÜÜĞ^\Ğ[YÛ›Y[œİ\ˆÚ[™[ˆÂˆ^
-˜[YKİ[NˆÛÛœİ^İ[JÛÛÜˆÚ[ÛÛÜœË˜\™İ[™K›ÛÚ^™NˆŒË›ÛÙZYÚˆ›ÛÙZYÚÎ
-JKˆÛÛœİÚ^™Y›Ş
-ZYÚˆÊKˆ^
-X™[İ[NˆÛÛœİ^İ[JÛÛÜˆÚ[ÛÛÜœË›]]Y›ÛÚ^™NˆLJJKˆKˆ
-Kˆ
-NÂˆBŸB‚˜Û\ÜÈÒ[œÚYÚ^[™Èİ][\ÜÕÚYÙ]ÂˆÛÛœİÒ[œÚYÚ
-\ËšXÛÛ‹\Ë]K\ËœİX]JNÂ‚ˆš[˜[XÛÛ‘]HXÛÛÂˆš[˜[İš[™È]NÂˆš[˜[İš[™ÈİX]NÂ‚ˆİ™\œšYBˆÚYÙ]Z[
-Z[ÛÛ^ÛÛ^
-HÂˆ™]\›ˆÛÛZ[™\ŠˆY[™ÎˆÛÛœİYÙR[œÙ]Ë˜[
-MŠKˆXÛÜ˜][Ûˆ›ŞXÛÜ˜][ÛŠˆÛÛÜˆÛÛÜœËÚ]Kˆ›Ü™\”˜Y]\Îˆ›Ü™\”˜Y]\Ë˜Ú\˜İ[\ŠŒJKˆ›Ü™\ˆ›Ü™\‹˜[
-ÛÛÜˆÚ[ÛÛÜœËœØ[™Ú]ÜXÚ]JJJKˆ
-KˆÚ[ˆ›İÊˆÚ[™[ˆÂˆÚ\˜ÛP]˜]\Š˜XÚÙÜ›İ[™ÛÛÜˆÚ[ÛÛÜœËš]›ÜKÚ[ˆXÛÛŠXÛÛ‹ÛÛÜˆÚ[ÛÛÜœË˜\™İ[™JJKˆÛÛœİÚ^™Y›Ş
-ÚYˆLÊKˆ^[™Y
-ˆÚ[ˆÛÛ[[ŠˆÜ›ÜÜĞ^\Ğ[YÛ›Y[ˆÜ›ÜÜĞ^\Ğ[YÛ›Y[œİ\ˆÚ[™[ˆÂˆ^
-]Kİ[NˆÛÛœİ^İ[J›ÛÙZYÚˆ›ÛÙZYÚÍÌ›ÛÚ^™NˆL‹JJKˆÛÛœİÚ^™Y›Ş
-ZYÚˆÊKˆ^
-İX]Kİ[NˆÛÛœİ^İ[JÛÛÜˆÚ[ÛÛÜœË›]]Y›ÛÚ^™NˆLKZYÚˆKŒÍJJKˆKˆ
-Kˆ
-KˆÛÛœİXÛÛŠXÛÛœË˜Ú]œ›Û—ÜšYÚÜ›İ[™YÛÛÜˆÚ[ÛÛÜœË›[ØÚJKˆKˆ
-Kˆ
-NÂˆBŸB
+          const _Insight(
+            Icons.favorite_outline_rounded,
+            'VocÃªs estÃ£o mais presentes',
+            'Tiveram mais momentos de qualidade juntos nesta semana.',
+          ),
+          const SizedBox(height: 10),
+          const _Insight(
+            Icons.chat_bubble_outline_rounded,
+            'Mais palavras que aproximam',
+            'Os elogios aumentaram e isso fortalece a conexÃ£o de vocÃªs.',
+          ),
+          const SizedBox(height: 10),
+          const _Insight(
+            Icons.balance_rounded,
+            'EquilÃ­brio em evoluÃ§Ã£o',
+            'A rotina e os momentos a dois ficaram mais equilibrados.',
+          ),
+          const SizedBox(height: 22),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: TwinColors.sand.withValues(alpha: .48),
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: const Row(
+              children: [
+                Icon(
+                  Icons.lightbulb_outline_rounded,
+                  color: TwinColors.terracotta,
+                ),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Que tal reservarem um tempo esta semana para fazer algo novo juntos?',
+                    style: TextStyle(
+                      color: TwinColors.ink,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat(this.value, this.label);
+
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(17),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(21),
+        border: Border.all(
+          color: TwinColors.sand.withValues(alpha: .55),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            value,
+            style: const TextStyle(
+              color: TwinColors.burgundy,
+              fontSize: 23,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            label,
+            style: const TextStyle(
+              color: TwinColors.muted,
+              fontSize: 10.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Insight extends StatelessWidget {
+  const _Insight(this.icon, this.title, this.subtitle);
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(21),
+        border: Border.all(
+          color: TwinColors.sand.withValues(alpha: .5),
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: TwinColors.ivory,
+            child: Icon(icon, color: TwinColors.burgundy),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: TwinColors.muted,
+                    fontSize: 10.5,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: TwinColors.mocha,
+          ),
+        ],
+      ),
+    );
+  }
+}
