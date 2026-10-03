@@ -6,6 +6,7 @@ class CoupleSetup {
     required this.partnerBirthday,
     required this.relationshipStatus,
     required this.relationshipDate,
+    required this.sexualOrientation,
     required this.goals,
     required this.gratitude,
     required this.improvement,
@@ -22,6 +23,7 @@ class CoupleSetup {
   final DateTime? partnerBirthday;
   final String relationshipStatus;
   final DateTime? relationshipDate;
+  final String sexualOrientation;
   final Set<String> goals;
   final String gratitude;
   final String improvement;
